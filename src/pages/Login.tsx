@@ -2,23 +2,28 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import birdiesLogo from "@/assets/birdies-logo.png";
-import { Mail, Lock, Loader2, ArrowRight, UserPlus } from "lucide-react";
+import { Mail, Lock, Loader2, ArrowRight, UserPlus, User } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
 import { z } from "zod";
 
-const authSchema = z.object({
+const signInSchema = z.object({
   email: z.string().trim().email("Please enter a valid email address"),
   password: z.string().min(6, "Password must be at least 6 characters"),
+});
+
+const signUpSchema = signInSchema.extend({
+  firstName: z.string().trim().min(1, "First name is required").max(50, "First name must be less than 50 characters"),
 });
 
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [firstName, setFirstName] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
-  const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+  const [errors, setErrors] = useState<{ email?: string; password?: string; firstName?: string }>({});
   const { signIn, signUp, user, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
 
@@ -30,11 +35,13 @@ export default function Login() {
   }, [user, authLoading, navigate]);
 
   const validateForm = () => {
-    const result = authSchema.safeParse({ email, password });
+    const schema = isSignUp ? signUpSchema : signInSchema;
+    const data = isSignUp ? { email, password, firstName } : { email, password };
+    const result = schema.safeParse(data);
     if (!result.success) {
-      const fieldErrors: { email?: string; password?: string } = {};
+      const fieldErrors: { email?: string; password?: string; firstName?: string } = {};
       result.error.errors.forEach((err) => {
-        const field = err.path[0] as "email" | "password";
+        const field = err.path[0] as "email" | "password" | "firstName";
         fieldErrors[field] = err.message;
       });
       setErrors(fieldErrors);
@@ -53,7 +60,7 @@ export default function Login() {
 
     try {
       if (isSignUp) {
-        const { error } = await signUp(email, password);
+        const { error } = await signUp(email, password, firstName);
         if (error) {
           if (error.message.includes("already registered")) {
             toast({
@@ -145,6 +152,29 @@ export default function Login() {
           </p>
 
           <form onSubmit={handleSubmit} className="space-y-4">
+            {/* First Name Input - Only for Sign Up */}
+            {isSignUp && (
+              <div className="space-y-1">
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                  <Input
+                    type="text"
+                    placeholder="First name"
+                    value={firstName}
+                    onChange={(e) => {
+                      setFirstName(e.target.value);
+                      setErrors((prev) => ({ ...prev, firstName: undefined }));
+                    }}
+                    className="pl-10 h-14 font-inter text-base"
+                    disabled={isLoading}
+                  />
+                </div>
+                {errors.firstName && (
+                  <p className="text-destructive font-inter text-sm pl-1">{errors.firstName}</p>
+                )}
+              </div>
+            )}
+
             {/* Email Input */}
             <div className="space-y-1">
               <div className="relative">
@@ -214,6 +244,7 @@ export default function Login() {
               onClick={() => {
                 setIsSignUp(!isSignUp);
                 setErrors({});
+                setFirstName("");
               }}
               className="w-full flex items-center justify-center gap-2 text-muted-foreground hover:text-foreground font-inter text-sm transition-colors"
             >
