@@ -89,6 +89,7 @@ export default function Rounds() {
                   <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4 mb-2">
                     <h3 className="font-inter font-semibold text-foreground">
                       {round.tournamentName}
+                      {round.scorecard?.round && ` - Round ${round.scorecard.round}`}
                     </h3>
                     <span className={`inline-flex px-3 py-1 rounded-full text-xs font-inter font-medium w-fit ${
                       round.status === "Completed" 
