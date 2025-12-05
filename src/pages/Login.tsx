@@ -78,12 +78,9 @@ export default function Login() {
             alt="Birdies Golf Simulator" 
             className="h-24 w-auto mx-auto mb-8 animate-fade-in"
           />
-          <h1 className="font-anton text-4xl md:text-5xl text-primary-foreground mb-3 animate-slide-up">
+          <h1 className="font-anton text-4xl md:text-5xl text-primary-foreground animate-slide-up">
             BIRDIES HUB
           </h1>
-          <p className="font-inter text-primary-foreground/80 text-lg animate-slide-up" style={{ animationDelay: "100ms" }}>
-            Track your simulator performance
-          </p>
         </div>
       </div>
 
