@@ -24,11 +24,11 @@ interface MemberStats {
   totalRounds: number;
 }
 
-async function getApiKey(): Promise<string> {
+async function getApiKey(forceRefresh = false): Promise<string> {
   const now = Date.now();
   
-  // Return cached key if still valid (with 5 min buffer)
-  if (cachedApiKey && apiKeyExpiry > now + 300000) {
+  // Return cached key if still valid (with 5 min buffer) and not forcing refresh
+  if (!forceRefresh && cachedApiKey && apiKeyExpiry > now + 300000) {
     return cachedApiKey;
   }
 
@@ -43,6 +43,8 @@ async function getApiKey(): Promise<string> {
   formData.append("username", username);
   formData.append("password", password);
 
+  console.log("Requesting new API key...");
+  
   const response = await fetch(`${SGT_BASE_URL}/${CLUB_URL}/apikey/create`, {
     method: "POST",
     headers: {
@@ -65,7 +67,12 @@ async function getApiKey(): Promise<string> {
   return cachedApiKey as string;
 }
 
-async function sgtRequest(endpoint: string, params: Record<string, string> = {}) {
+function clearApiKeyCache() {
+  cachedApiKey = null;
+  apiKeyExpiry = 0;
+}
+
+async function sgtRequest(endpoint: string, params: Record<string, string> = {}, retryCount = 0): Promise<unknown> {
   const apiKey = await getApiKey();
   const url = new URL(`${SGT_BASE_URL}/${CLUB_URL}${endpoint}`);
   url.searchParams.append("api-key", apiKey);
@@ -79,11 +86,28 @@ async function sgtRequest(endpoint: string, params: Record<string, string> = {})
   const response = await fetch(url.toString());
   
   if (!response.ok) {
-    console.error("SGT API error:", response.status, await response.text());
+    const errorText = await response.text();
+    console.error("SGT API HTTP error:", response.status, errorText);
     throw new Error(`SGT API error: ${response.status}`);
   }
 
-  return response.json();
+  const data = await response.json();
+  
+  // Check for "INVALID API KEY" response and retry with fresh key
+  if (data === "INVALID API KEY" || (typeof data === 'object' && data?.error === "INVALID API KEY")) {
+    console.log("Invalid API key detected, refreshing...");
+    clearApiKeyCache();
+    
+    if (retryCount < 1) {
+      // Force refresh the API key and retry
+      await getApiKey(true);
+      return sgtRequest(endpoint, params, retryCount + 1);
+    }
+    
+    throw new Error("API key invalid after refresh");
+  }
+
+  return data;
 }
 
 // Helper to extract array from API response (handles wrapped responses)
@@ -98,7 +122,7 @@ function extractArray(data: unknown, possibleKeys: string[] = ['results', 'membe
       }
     }
   }
-  console.log("Response structure:", JSON.stringify(data).slice(0, 500));
+  console.log("Response structure (not array):", JSON.stringify(data).slice(0, 500));
   return [];
 }
 
