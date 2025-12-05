@@ -22,7 +22,7 @@ export default function Leaderboard() {
   const [selectedTournament, setSelectedTournament] = useState<number | null>(null);
   const [tournamentResults, setTournamentResults] = useState<TournamentResult[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [scoreType, setScoreType] = useState<"gross" | "net">("gross");
+  const [scoreType, setScoreType] = useState<"gross" | "net">("net");
   const [viewMode, setViewMode] = useState<"overall" | "weekly">("overall");
   const [showAllWeeks, setShowAllWeeks] = useState(false);
 
@@ -220,29 +220,31 @@ export default function Leaderboard() {
           </Select>
         )}
 
-        <div className="flex rounded-lg border border-border overflow-hidden">
-          <button
-            onClick={() => setScoreType("gross")}
-            className={cn(
-              "px-4 py-2 font-inter text-sm font-medium transition-colors",
-              scoreType === "gross"
-                ? "bg-primary text-primary-foreground"
-                : "bg-card text-muted-foreground hover:text-foreground"
-            )}
-          >
-            Gross
-          </button>
-          <button
-            onClick={() => setScoreType("net")}
-            className={cn(
-              "px-4 py-2 font-inter text-sm font-medium transition-colors",
-              scoreType === "net"
-                ? "bg-primary text-primary-foreground"
-                : "bg-card text-muted-foreground hover:text-foreground"
-            )}
-          >
-            Net
-          </button>
+        <div className="flex-1 flex justify-center sm:justify-end">
+          <div className="flex rounded-full bg-muted overflow-hidden">
+            <button
+              onClick={() => setScoreType("gross")}
+              className={cn(
+                "px-4 py-2 font-inter text-sm font-medium transition-colors rounded-full",
+                scoreType === "gross"
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              Gross
+            </button>
+            <button
+              onClick={() => setScoreType("net")}
+              className={cn(
+                "px-4 py-2 font-inter text-sm font-medium transition-colors rounded-full",
+                scoreType === "net"
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              Net
+            </button>
+          </div>
         </div>
       </div>
 
