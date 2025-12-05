@@ -12,7 +12,9 @@ import {
   Calendar,
   Loader2,
   MapPin,
-  ChevronRight
+  ChevronRight,
+  ChevronDown,
+  ChevronUp
 } from "lucide-react";
 import { Link } from "react-router-dom";
 
@@ -24,6 +26,11 @@ export default function Dashboard() {
   const [tours, setTours] = useState<Tour[]>([]);
   const [standings, setStandings] = useState<TourStanding | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [expandedRound, setExpandedRound] = useState<string | null>(null);
+
+  const toggleExpand = (roundKey: string) => {
+    setExpandedRound(expandedRound === roundKey ? null : roundKey);
+  };
 
   useEffect(() => {
     if (!playerLoading && !player) {
@@ -149,38 +156,61 @@ export default function Dashboard() {
               </div>
             ) : (
               <div className="space-y-4">
-                {recentRounds.slice(0, 3).map((round) => (
-                  <div 
-                    key={round.tournamentId}
-                    className="bg-card rounded-xl border border-border p-4 hover:shadow-md transition-shadow"
-                  >
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-3">
-                      <div>
-                        <h3 className="font-inter font-semibold text-foreground">
-                          {round.tournamentName}
-                        </h3>
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground font-inter">
-                          <MapPin className="h-3 w-3" />
-                          {round.courseName}
-                          <span className="text-border">•</span>
-                          {new Date(round.date).toLocaleDateString("en-AU", {
-                            day: "numeric",
-                            month: "short",
-                            year: "numeric"
-                          })}
+                {recentRounds.slice(0, 3).map((round, index) => {
+                  const roundKey = `${round.tournamentId}-${round.scorecard?.round || index}`;
+                  const isExpanded = expandedRound === roundKey;
+                  return (
+                    <div 
+                      key={roundKey}
+                      className="bg-card rounded-xl border border-border overflow-hidden hover:shadow-md transition-shadow"
+                    >
+                      <button
+                        onClick={() => toggleExpand(roundKey)}
+                        className="w-full p-4 text-left hover:bg-muted/30 transition-colors"
+                      >
+                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-3">
+                          <div>
+                            <h3 className="font-inter font-semibold text-foreground">
+                              {round.tournamentName}
+                              {round.scorecard?.round && ` - Round ${round.scorecard.round}`}
+                            </h3>
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground font-inter">
+                              <MapPin className="h-3 w-3" />
+                              {round.courseName}
+                              <span className="text-border">•</span>
+                              {new Date(round.date).toLocaleDateString("en-AU", {
+                                day: "numeric",
+                                month: "short",
+                                year: "numeric"
+                              })}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <span className={`px-3 py-1 rounded-full text-xs font-inter font-medium ${
+                              round.status === "Completed" 
+                                ? "bg-birdie/20 text-birdie" 
+                                : "bg-secondary/20 text-secondary"
+                            }`}>
+                              {round.status}
+                            </span>
+                            {isExpanded ? (
+                              <ChevronUp className="h-5 w-5 text-muted-foreground" />
+                            ) : (
+                              <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                            )}
+                          </div>
                         </div>
-                      </div>
-                      <span className={`px-3 py-1 rounded-full text-xs font-inter font-medium ${
-                        round.status === "Completed" 
-                          ? "bg-birdie/20 text-birdie" 
-                          : "bg-secondary/20 text-secondary"
-                      }`}>
-                        {round.status}
-                      </span>
+                        <ScorecardDisplay scorecard={round.scorecard} />
+                      </button>
+                      
+                      {isExpanded && (
+                        <div className="px-4 pb-4 pt-2 border-t border-border animate-fade-in">
+                          <ScorecardDisplay scorecard={round.scorecard} showDetails />
+                        </div>
+                      )}
                     </div>
-                    <ScorecardDisplay scorecard={round.scorecard} />
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
