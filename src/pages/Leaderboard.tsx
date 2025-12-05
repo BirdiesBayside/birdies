@@ -24,6 +24,9 @@ export default function Leaderboard() {
   const [isLoading, setIsLoading] = useState(true);
   const [scoreType, setScoreType] = useState<"gross" | "net">("gross");
   const [viewMode, setViewMode] = useState<"overall" | "weekly">("overall");
+  const [showAllWeeks, setShowAllWeeks] = useState(false);
+
+  const INITIAL_WEEKS_TO_SHOW = 5;
 
   useEffect(() => {
     if (authLoading) return;
@@ -184,11 +187,11 @@ export default function Leaderboard() {
               <SelectValue placeholder="Select week" />
             </SelectTrigger>
             <SelectContent>
-              {tournaments.map((tournament, index) => (
+              {(showAllWeeks ? tournaments : tournaments.slice(0, INITIAL_WEEKS_TO_SHOW)).map((tournament, index) => (
                 <SelectItem key={tournament.tournamentId} value={tournament.tournamentId.toString()}>
                   <div className="flex items-center gap-2">
                     <Calendar className="h-4 w-4" />
-                    <span>Week {getWeekNumber(index)}: {tournament.name}</span>
+                    <span>Week {getWeekNumber(showAllWeeks ? index : index)}: {tournament.name}</span>
                     {index === 0 && (
                       <span className="ml-1 px-1.5 py-0.5 text-[10px] font-semibold bg-secondary text-secondary-foreground rounded">
                         CURRENT
@@ -197,6 +200,21 @@ export default function Leaderboard() {
                   </div>
                 </SelectItem>
               ))}
+              {tournaments.length > INITIAL_WEEKS_TO_SHOW && (
+                <div 
+                  className="relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground font-inter text-muted-foreground"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowAllWeeks(!showAllWeeks);
+                  }}
+                >
+                  {showAllWeeks ? (
+                    <span>Show less</span>
+                  ) : (
+                    <span>Show {tournaments.length - INITIAL_WEEKS_TO_SHOW} more weeks...</span>
+                  )}
+                </div>
+              )}
             </SelectContent>
           </Select>
         )}
