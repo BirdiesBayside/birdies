@@ -10,6 +10,7 @@ const CLUB_URL = "birdiesbayside";
 
 let cachedApiKey: string | null = null;
 let apiKeyExpiry: number = 0;
+let keyRefreshPromise: Promise<string> | null = null;
 
 interface TourStats {
   tourId: number;
@@ -24,14 +25,7 @@ interface MemberStats {
   totalRounds: number;
 }
 
-async function getApiKey(forceRefresh = false): Promise<string> {
-  const now = Date.now();
-  
-  // Return cached key if still valid (with 5 min buffer) and not forcing refresh
-  if (!forceRefresh && cachedApiKey && apiKeyExpiry > now + 300000) {
-    return cachedApiKey;
-  }
-
+async function fetchNewApiKey(): Promise<string> {
   const username = Deno.env.get("SGT_USERNAME");
   const password = Deno.env.get("SGT_PASSWORD");
 
@@ -60,11 +54,39 @@ async function getApiKey(forceRefresh = false): Promise<string> {
     throw new Error("Failed to authenticate with SGT API");
   }
 
-  cachedApiKey = data.key;
-  apiKeyExpiry = now + (data.expires * 1000);
-  
   console.log("SGT API key obtained, expires in:", data.expires, "seconds");
-  return cachedApiKey as string;
+  return data.key;
+}
+
+async function getApiKey(forceRefresh = false): Promise<string> {
+  const now = Date.now();
+  
+  // Return cached key if still valid (with 5 min buffer) and not forcing refresh
+  if (!forceRefresh && cachedApiKey && apiKeyExpiry > now + 300000) {
+    return cachedApiKey;
+  }
+
+  // If a refresh is already in progress, wait for it
+  if (keyRefreshPromise) {
+    console.log("Waiting for existing key refresh...");
+    return keyRefreshPromise;
+  }
+
+  // Start a new refresh and store the promise
+  keyRefreshPromise = fetchNewApiKey()
+    .then(key => {
+      cachedApiKey = key;
+      apiKeyExpiry = Date.now() + (86400 * 1000); // 24 hours
+      return key;
+    })
+    .finally(() => {
+      // Clear the promise after a short delay to allow batching
+      setTimeout(() => {
+        keyRefreshPromise = null;
+      }, 1000);
+    });
+
+  return keyRefreshPromise;
 }
 
 function clearApiKeyCache() {
@@ -95,16 +117,15 @@ async function sgtRequest(endpoint: string, params: Record<string, string> = {},
   
   // Check for "INVALID API KEY" response and retry with fresh key
   if (data === "INVALID API KEY" || (typeof data === 'object' && data?.error === "INVALID API KEY")) {
-    console.log("Invalid API key detected, refreshing...");
-    clearApiKeyCache();
-    
-    if (retryCount < 1) {
-      // Force refresh the API key and retry
-      await getApiKey(true);
+    if (retryCount < 2) {
+      console.log("Invalid API key detected, will refresh and retry (attempt", retryCount + 1, ")");
+      clearApiKeyCache();
+      // Small delay before retry to avoid race conditions
+      await new Promise(resolve => setTimeout(resolve, 500));
       return sgtRequest(endpoint, params, retryCount + 1);
     }
     
-    throw new Error("API key invalid after refresh");
+    throw new Error("API key invalid after multiple retries");
   }
 
   return data;
