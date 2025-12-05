@@ -60,6 +60,7 @@ export interface Scorecard {
   out_gross: number;
   in_net: number;
   out_net: number;
+  holeData?: Record<string, number | string>;
   [key: string]: unknown;
 }
 
