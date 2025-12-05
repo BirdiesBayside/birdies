@@ -14,7 +14,314 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      sgt_members: {
+        Row: {
+          updated_at: string | null
+          user_active: number | null
+          user_country_code: string | null
+          user_email: string | null
+          user_game_id: string | null
+          user_has_avatar: string | null
+          user_id: number
+          user_name: string
+        }
+        Insert: {
+          updated_at?: string | null
+          user_active?: number | null
+          user_country_code?: string | null
+          user_email?: string | null
+          user_game_id?: string | null
+          user_has_avatar?: string | null
+          user_id: number
+          user_name: string
+        }
+        Update: {
+          updated_at?: string | null
+          user_active?: number | null
+          user_country_code?: string | null
+          user_email?: string | null
+          user_game_id?: string | null
+          user_has_avatar?: string | null
+          user_id?: number
+          user_name?: string
+        }
+        Relationships: []
+      }
+      sgt_scorecards: {
+        Row: {
+          course_name: string | null
+          hcp_index: number | null
+          hole_data: Json | null
+          id: string
+          in_gross: number | null
+          in_net: number | null
+          out_gross: number | null
+          out_net: number | null
+          player_id: number
+          player_name: string | null
+          rating: number | null
+          round: number | null
+          slope: number | null
+          teetype: string | null
+          to_par_gross: number | null
+          to_par_net: number | null
+          total_gross: number | null
+          total_net: number | null
+          tournament_id: number
+          updated_at: string | null
+        }
+        Insert: {
+          course_name?: string | null
+          hcp_index?: number | null
+          hole_data?: Json | null
+          id?: string
+          in_gross?: number | null
+          in_net?: number | null
+          out_gross?: number | null
+          out_net?: number | null
+          player_id: number
+          player_name?: string | null
+          rating?: number | null
+          round?: number | null
+          slope?: number | null
+          teetype?: string | null
+          to_par_gross?: number | null
+          to_par_net?: number | null
+          total_gross?: number | null
+          total_net?: number | null
+          tournament_id: number
+          updated_at?: string | null
+        }
+        Update: {
+          course_name?: string | null
+          hcp_index?: number | null
+          hole_data?: Json | null
+          id?: string
+          in_gross?: number | null
+          in_net?: number | null
+          out_gross?: number | null
+          out_net?: number | null
+          player_id?: number
+          player_name?: string | null
+          rating?: number | null
+          round?: number | null
+          slope?: number | null
+          teetype?: string | null
+          to_par_gross?: number | null
+          to_par_net?: number | null
+          total_gross?: number | null
+          total_net?: number | null
+          tournament_id?: number
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sgt_scorecards_tournament_id_fkey"
+            columns: ["tournament_id"]
+            isOneToOne: false
+            referencedRelation: "sgt_tournaments"
+            referencedColumns: ["tournament_id"]
+          },
+        ]
+      }
+      sgt_sync_log: {
+        Row: {
+          completed_at: string | null
+          error_message: string | null
+          id: string
+          records_synced: number | null
+          started_at: string | null
+          status: string | null
+          sync_type: string
+        }
+        Insert: {
+          completed_at?: string | null
+          error_message?: string | null
+          id?: string
+          records_synced?: number | null
+          started_at?: string | null
+          status?: string | null
+          sync_type: string
+        }
+        Update: {
+          completed_at?: string | null
+          error_message?: string | null
+          id?: string
+          records_synced?: number | null
+          started_at?: string | null
+          status?: string | null
+          sync_type?: string
+        }
+        Relationships: []
+      }
+      sgt_tour_members: {
+        Row: {
+          custom_hcp: number | null
+          hcp_index: number | null
+          id: string
+          tour_id: number
+          updated_at: string | null
+          user_id: number
+          user_name: string
+        }
+        Insert: {
+          custom_hcp?: number | null
+          hcp_index?: number | null
+          id?: string
+          tour_id: number
+          updated_at?: string | null
+          user_id: number
+          user_name: string
+        }
+        Update: {
+          custom_hcp?: number | null
+          hcp_index?: number | null
+          id?: string
+          tour_id?: number
+          updated_at?: string | null
+          user_id?: number
+          user_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sgt_tour_members_tour_id_fkey"
+            columns: ["tour_id"]
+            isOneToOne: false
+            referencedRelation: "sgt_tours"
+            referencedColumns: ["tour_id"]
+          },
+        ]
+      }
+      sgt_tour_standings: {
+        Row: {
+          country_code: string | null
+          events: number | null
+          first: number | null
+          gross_or_net: string | null
+          hcp: number | null
+          id: string
+          points: number | null
+          position: number | null
+          top10: number | null
+          top5: number | null
+          tour_id: number
+          updated_at: string | null
+          user_has_avatar: string | null
+          user_name: string
+        }
+        Insert: {
+          country_code?: string | null
+          events?: number | null
+          first?: number | null
+          gross_or_net?: string | null
+          hcp?: number | null
+          id?: string
+          points?: number | null
+          position?: number | null
+          top10?: number | null
+          top5?: number | null
+          tour_id: number
+          updated_at?: string | null
+          user_has_avatar?: string | null
+          user_name: string
+        }
+        Update: {
+          country_code?: string | null
+          events?: number | null
+          first?: number | null
+          gross_or_net?: string | null
+          hcp?: number | null
+          id?: string
+          points?: number | null
+          position?: number | null
+          top10?: number | null
+          top5?: number | null
+          tour_id?: number
+          updated_at?: string | null
+          user_has_avatar?: string | null
+          user_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sgt_tour_standings_tour_id_fkey"
+            columns: ["tour_id"]
+            isOneToOne: false
+            referencedRelation: "sgt_tours"
+            referencedColumns: ["tour_id"]
+          },
+        ]
+      }
+      sgt_tournaments: {
+        Row: {
+          course_name: string | null
+          end_date: string | null
+          name: string
+          start_date: string | null
+          status: string | null
+          tour_id: number
+          tournament_id: number
+          updated_at: string | null
+        }
+        Insert: {
+          course_name?: string | null
+          end_date?: string | null
+          name: string
+          start_date?: string | null
+          status?: string | null
+          tour_id: number
+          tournament_id: number
+          updated_at?: string | null
+        }
+        Update: {
+          course_name?: string | null
+          end_date?: string | null
+          name?: string
+          start_date?: string | null
+          status?: string | null
+          tour_id?: number
+          tournament_id?: number
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sgt_tournaments_tour_id_fkey"
+            columns: ["tour_id"]
+            isOneToOne: false
+            referencedRelation: "sgt_tours"
+            referencedColumns: ["tour_id"]
+          },
+        ]
+      }
+      sgt_tours: {
+        Row: {
+          active: number | null
+          end_date: string | null
+          name: string
+          start_date: string | null
+          team_tour: number | null
+          tour_id: number
+          updated_at: string | null
+        }
+        Insert: {
+          active?: number | null
+          end_date?: string | null
+          name: string
+          start_date?: string | null
+          team_tour?: number | null
+          tour_id: number
+          updated_at?: string | null
+        }
+        Update: {
+          active?: number | null
+          end_date?: string | null
+          name?: string
+          start_date?: string | null
+          team_tour?: number | null
+          tour_id?: number
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

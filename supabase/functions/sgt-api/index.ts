@@ -1,156 +1,19 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const SGT_BASE_URL = "https://simulatorgolftour.com/sgt-api/club-admin";
-const CLUB_URL = "birdiesbayside";
-
-let cachedApiKey: string | null = null;
-let apiKeyExpiry: number = 0;
-let keyRefreshPromise: Promise<string> | null = null;
-
-interface TourStats {
-  tourId: number;
-  tourName: string;
-  handicap: number;
-  customHandicap: number;
-}
-
-interface MemberStats {
-  tours: TourStats[];
-  handicap: number | null;
-  totalRounds: number;
-}
-
-async function fetchNewApiKey(): Promise<string> {
-  const username = Deno.env.get("SGT_USERNAME");
-  const password = Deno.env.get("SGT_PASSWORD");
-
-  if (!username || !password) {
-    throw new Error("SGT credentials not configured");
-  }
-
-  const formData = new URLSearchParams();
-  formData.append("username", username);
-  formData.append("password", password);
-
-  console.log("Requesting new API key...");
-  
-  const response = await fetch(`${SGT_BASE_URL}/${CLUB_URL}/apikey/create`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-    body: formData,
-  });
-
-  const data = await response.json();
-
-  if (!data.success || !data.key) {
-    console.error("Failed to get API key:", data);
-    throw new Error("Failed to authenticate with SGT API");
-  }
-
-  console.log("SGT API key obtained, expires in:", data.expires, "seconds");
-  return data.key;
-}
-
-async function getApiKey(forceRefresh = false): Promise<string> {
-  const now = Date.now();
-  
-  // Return cached key if still valid (with 5 min buffer) and not forcing refresh
-  if (!forceRefresh && cachedApiKey && apiKeyExpiry > now + 300000) {
-    return cachedApiKey;
-  }
-
-  // If a refresh is already in progress, wait for it
-  if (keyRefreshPromise) {
-    console.log("Waiting for existing key refresh...");
-    return keyRefreshPromise;
-  }
-
-  // Start a new refresh and store the promise
-  keyRefreshPromise = fetchNewApiKey()
-    .then(key => {
-      cachedApiKey = key;
-      apiKeyExpiry = Date.now() + (86400 * 1000); // 24 hours
-      return key;
-    })
-    .finally(() => {
-      // Clear the promise after a short delay to allow batching
-      setTimeout(() => {
-        keyRefreshPromise = null;
-      }, 1000);
-    });
-
-  return keyRefreshPromise;
-}
-
-function clearApiKeyCache() {
-  cachedApiKey = null;
-  apiKeyExpiry = 0;
-}
-
-async function sgtRequest(endpoint: string, params: Record<string, string> = {}, retryCount = 0): Promise<unknown> {
-  const apiKey = await getApiKey();
-  const url = new URL(`${SGT_BASE_URL}/${CLUB_URL}${endpoint}`);
-  url.searchParams.append("api-key", apiKey);
-  
-  for (const [key, value] of Object.entries(params)) {
-    url.searchParams.append(key, value);
-  }
-
-  console.log("SGT API request:", endpoint);
-  
-  const response = await fetch(url.toString());
-  
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error("SGT API HTTP error:", response.status, errorText);
-    throw new Error(`SGT API error: ${response.status}`);
-  }
-
-  const data = await response.json();
-  
-  // Check for "INVALID API KEY" response and retry with fresh key
-  if (data === "INVALID API KEY" || (typeof data === 'object' && data?.error === "INVALID API KEY")) {
-    if (retryCount < 2) {
-      console.log("Invalid API key detected, will refresh and retry (attempt", retryCount + 1, ")");
-      clearApiKeyCache();
-      // Small delay before retry to avoid race conditions
-      await new Promise(resolve => setTimeout(resolve, 500));
-      return sgtRequest(endpoint, params, retryCount + 1);
-    }
-    
-    throw new Error("API key invalid after multiple retries");
-  }
-
-  return data;
-}
-
-// Helper to extract array from API response (handles wrapped responses)
-function extractArray(data: unknown, possibleKeys: string[] = ['results', 'members', 'standings', 'scorecards', 'tours']): unknown[] {
-  if (Array.isArray(data)) {
-    return data;
-  }
-  if (data && typeof data === 'object') {
-    for (const key of possibleKeys) {
-      if (key in data && Array.isArray((data as Record<string, unknown>)[key])) {
-        return (data as Record<string, unknown>)[key] as unknown[];
-      }
-    }
-  }
-  console.log("Response structure (not array):", JSON.stringify(data).slice(0, 500));
-  return [];
-}
-
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
+
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const supabaseKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+  const supabase = createClient(supabaseUrl, supabaseKey);
 
   try {
     const { action, params = {} } = await req.json();
@@ -159,159 +22,232 @@ serve(async (req) => {
     
     switch (action) {
       case "members": {
-        const response = await sgtRequest("/members/list");
-        data = { members: extractArray(response, ['members', 'results']) };
+        const { data: members, error } = await supabase
+          .from("sgt_members")
+          .select("*")
+          .eq("user_active", 1)
+          .order("user_name");
+        
+        if (error) throw error;
+        
+        // Map to expected format
+        data = { 
+          members: members?.map(m => ({
+            user_id: m.user_id,
+            user_name: m.user_name,
+            user_email: m.user_email,
+            user_active: m.user_active,
+            user_country_code: m.user_country_code,
+            user_has_avatar: m.user_has_avatar,
+            user_game_id: m.user_game_id,
+          })) || []
+        };
         break;
       }
         
       case "tours": {
-        const response = await sgtRequest("/tours/list");
-        data = extractArray(response, ['tours', 'results']);
+        const { data: tours, error } = await supabase
+          .from("sgt_tours")
+          .select("*")
+          .order("active", { ascending: false });
+        
+        if (error) throw error;
+        
+        data = tours?.map(t => ({
+          tourId: t.tour_id,
+          name: t.name,
+          start_date: t.start_date,
+          end_date: t.end_date,
+          teamTour: t.team_tour,
+          active: t.active,
+        })) || [];
         break;
       }
         
       case "tour-standings": {
         if (!params.tourId) throw new Error("tourId required");
-        const response = await sgtRequest("/tours/standings", { 
-          tourId: params.tourId,
-          grossOrNet: params.grossOrNet || "gross"
-        });
-        data = extractArray(response, ['standings', 'results']);
+        
+        const { data: standings, error } = await supabase
+          .from("sgt_tour_standings")
+          .select("*")
+          .eq("tour_id", parseInt(params.tourId))
+          .eq("gross_or_net", params.grossOrNet || "gross")
+          .order("position");
+        
+        if (error) throw error;
+        
+        data = standings?.map(s => ({
+          user_name: s.user_name,
+          country_code: s.country_code,
+          user_has_avatar: s.user_has_avatar,
+          hcp: s.hcp,
+          events: s.events,
+          first: s.first,
+          top5: s.top5,
+          top10: s.top10,
+          points: s.points,
+          position: s.position,
+        })) || [];
         break;
       }
         
       case "tour-members": {
         if (!params.tourId) throw new Error("tourId required");
-        const response = await sgtRequest("/tours/members", { tourId: params.tourId });
-        data = extractArray(response, ['members', 'results']);
+        
+        const { data: members, error } = await supabase
+          .from("sgt_tour_members")
+          .select("*")
+          .eq("tour_id", parseInt(params.tourId));
+        
+        if (error) throw error;
+        
+        data = members?.map(m => ({
+          user_id: m.user_id,
+          user_name: m.user_name,
+          hcp_index: m.hcp_index,
+          custom_hcp: m.custom_hcp,
+        })) || [];
         break;
       }
         
       case "tournaments": {
         if (!params.tourId) throw new Error("tourId required");
-        const response = await sgtRequest("/tournaments/list", { tourId: params.tourId });
-        data = { results: extractArray(response, ['results', 'tournaments']) };
+        
+        const { data: tournaments, error } = await supabase
+          .from("sgt_tournaments")
+          .select("*")
+          .eq("tour_id", parseInt(params.tourId))
+          .order("end_date", { ascending: false });
+        
+        if (error) throw error;
+        
+        data = { 
+          results: tournaments?.map(t => ({
+            tournamentId: t.tournament_id,
+            tourId: t.tour_id,
+            name: t.name,
+            courseName: t.course_name,
+            status: t.status,
+            start_date: t.start_date,
+            end_date: t.end_date,
+          })) || []
+        };
         break;
       }
         
       case "scorecards": {
         if (!params.tournamentId) throw new Error("tournamentId required");
-        const response = await sgtRequest("/tournaments/scorecards", { tournamentId: params.tournamentId });
-        data = extractArray(response, ['scorecards', 'results']);
-        break;
-      }
         
-      case "registrations": {
-        if (!params.tournamentId) throw new Error("tournamentId required");
-        const response = await sgtRequest("/registrations/view", { tournamentId: params.tournamentId });
-        data = extractArray(response, ['registrations', 'results']);
+        const { data: scorecards, error } = await supabase
+          .from("sgt_scorecards")
+          .select("*")
+          .eq("tournament_id", parseInt(params.tournamentId));
+        
+        if (error) throw error;
+        
+        data = scorecards?.map(sc => ({
+          playerId: sc.player_id,
+          player_name: sc.player_name,
+          hcp_index: sc.hcp_index,
+          round: sc.round,
+          courseName: sc.course_name,
+          teetype: sc.teetype,
+          rating: sc.rating,
+          slope: sc.slope,
+          total_gross: sc.total_gross,
+          total_net: sc.total_net,
+          toPar_gross: sc.to_par_gross,
+          toPar_net: sc.to_par_net,
+          in_gross: sc.in_gross,
+          out_gross: sc.out_gross,
+          in_net: sc.in_net,
+          out_net: sc.out_net,
+          ...sc.hole_data,
+        })) || [];
         break;
       }
         
       case "member-stats": {
         if (!params.userId) throw new Error("userId required");
-        const toursResponse = await sgtRequest("/tours/list");
-        const tours = extractArray(toursResponse, ['tours', 'results']);
         
-        const memberStats: MemberStats = {
-          tours: [],
-          handicap: null,
+        // Get tour memberships with handicap info
+        const { data: tourMemberships, error: tmError } = await supabase
+          .from("sgt_tour_members")
+          .select("*, sgt_tours!inner(name, active)")
+          .eq("user_id", parseInt(params.userId));
+        
+        if (tmError) throw tmError;
+        
+        const tours = tourMemberships
+          ?.filter(tm => tm.sgt_tours?.active === 1)
+          .map(tm => ({
+            tourId: tm.tour_id,
+            tourName: tm.sgt_tours?.name,
+            handicap: tm.hcp_index || 0,
+            customHandicap: tm.custom_hcp || 0,
+          })) || [];
+        
+        data = {
+          tours,
+          handicap: tours.length > 0 ? tours[0].handicap : null,
           totalRounds: 0,
         };
-        
-        const activeTours = tours.filter((t: unknown) => {
-          const tour = t as { active?: number };
-          return tour.active === 1;
-        });
-        
-        for (const tour of activeTours) {
-          const t = tour as { tourId: number; name: string };
-          try {
-            const membersResponse = await sgtRequest("/tours/members", { tourId: t.tourId.toString() });
-            const members = extractArray(membersResponse, ['members', 'results']);
-            const memberData = members.find((m: unknown) => {
-              const member = m as { user_id: number };
-              return member.user_id?.toString() === params.userId;
-            }) as { hcp_index?: number; custom_hcp?: number } | undefined;
-            
-            if (memberData) {
-              memberStats.tours.push({
-                tourId: t.tourId,
-                tourName: t.name,
-                handicap: memberData.hcp_index || 0,
-                customHandicap: memberData.custom_hcp || 0,
-              });
-              if (memberStats.handicap === null && memberData.hcp_index !== undefined) {
-                memberStats.handicap = memberData.hcp_index;
-              }
-            }
-          } catch (e) {
-            console.error("Error getting tour members:", e);
-          }
-        }
-        
-        data = memberStats;
         break;
       }
         
       case "player-rounds": {
         if (!params.userId) throw new Error("userId required");
-        const toursResponse = await sgtRequest("/tours/list");
-        const allTours = extractArray(toursResponse, ['tours', 'results']);
         
-        const rounds: Array<{
-          tournamentId: number;
-          tournamentName: string;
-          courseName: string;
-          date: string;
-          status: string;
-          scorecard: unknown;
-        }> = [];
+        // Get all scorecards for this player with tournament info
+        const { data: scorecards, error } = await supabase
+          .from("sgt_scorecards")
+          .select("*, sgt_tournaments!inner(name, course_name, end_date, status)")
+          .eq("player_id", parseInt(params.userId))
+          .order("sgt_tournaments(end_date)", { ascending: false })
+          .limit(50);
         
-        const activeTours = allTours.filter((t: unknown) => {
-          const tour = t as { active?: number };
-          return tour.active === 1;
-        });
+        if (error) throw error;
         
-        for (const tour of activeTours) {
-          const t = tour as { tourId: number };
-          try {
-            const tournamentsResponse = await sgtRequest("/tournaments/list", { tourId: t.tourId.toString() });
-            const tournaments = extractArray(tournamentsResponse, ['results', 'tournaments']);
-            
-            for (const tournament of tournaments.slice(0, 10)) {
-              const tourn = tournament as { tournamentId: number; name: string; courseName: string; end_date: string; status: string };
-              try {
-                const scorecardsResponse = await sgtRequest("/tournaments/scorecards", { 
-                  tournamentId: tourn.tournamentId.toString() 
-                });
-                const scorecards = extractArray(scorecardsResponse, ['scorecards', 'results']);
-                
-                const playerScorecard = scorecards.find((sc: unknown) => {
-                  const scorecard = sc as { playerId: number };
-                  return scorecard.playerId?.toString() === params.userId;
-                }) as { courseName?: string } | undefined;
-                
-                if (playerScorecard) {
-                  rounds.push({
-                    tournamentId: tourn.tournamentId,
-                    tournamentName: tourn.name,
-                    courseName: playerScorecard.courseName || tourn.courseName,
-                    date: tourn.end_date,
-                    status: tourn.status,
-                    scorecard: playerScorecard,
-                  });
-                }
-              } catch (e) {
-                console.error("Error getting scorecards:", e);
-              }
-            }
-          } catch (e) {
-            console.error("Error getting tournaments:", e);
-          }
-        }
+        data = scorecards?.map(sc => ({
+          tournamentId: sc.tournament_id,
+          tournamentName: sc.sgt_tournaments?.name,
+          courseName: sc.course_name || sc.sgt_tournaments?.course_name,
+          date: sc.sgt_tournaments?.end_date,
+          status: sc.sgt_tournaments?.status,
+          scorecard: {
+            playerId: sc.player_id,
+            player_name: sc.player_name,
+            hcp_index: sc.hcp_index,
+            round: sc.round,
+            courseName: sc.course_name,
+            teetype: sc.teetype,
+            rating: sc.rating,
+            slope: sc.slope,
+            total_gross: sc.total_gross,
+            total_net: sc.total_net,
+            toPar_gross: sc.to_par_gross,
+            toPar_net: sc.to_par_net,
+            in_gross: sc.in_gross,
+            out_gross: sc.out_gross,
+            in_net: sc.in_net,
+            out_net: sc.out_net,
+            ...sc.hole_data,
+          },
+        })) || [];
+        break;
+      }
+
+      case "last-sync": {
+        const { data: lastSync, error } = await supabase
+          .from("sgt_sync_log")
+          .select("*")
+          .eq("status", "completed")
+          .order("completed_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
         
-        data = rounds.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        if (error) throw error;
+        data = lastSync;
         break;
       }
         
