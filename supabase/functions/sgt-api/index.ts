@@ -231,6 +231,7 @@ serve(async (req) => {
             out_gross: sc.out_gross,
             in_net: sc.in_net,
             out_net: sc.out_net,
+            holeData: sc.hole_data,
             ...sc.hole_data,
           },
         })) || [];

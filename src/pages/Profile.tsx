@@ -1,20 +1,106 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { usePlayer } from "@/contexts/PlayerContext";
 import { Layout } from "@/components/Layout";
 import { StatCard } from "@/components/StatCard";
-import { sgtClient, MemberStats, PlayerRound, TourStanding } from "@/lib/sgt-api";
+import { sgtClient, MemberStats, PlayerRound, TourStanding, Scorecard } from "@/lib/sgt-api";
 import { 
   Loader2, 
-  User, 
   Mail, 
   Globe, 
   Target, 
   Trophy,
-  TrendingUp,
   TrendingDown,
-  BarChart3
+  BarChart3,
+  Zap,
+  CircleDot,
+  AlertTriangle,
+  Gauge,
+  Award
 } from "lucide-react";
+
+interface HoleData {
+  [key: string]: number | string;
+}
+
+interface ProgressStats {
+  avgBirdies: number;
+  avgPars: number;
+  avgBogeys: number;
+  avgDoublePlus: number;
+  par3Avg: number;
+  par4Avg: number;
+  par5Avg: number;
+  blowUpFrequency: number;
+  consistencyScore: number;
+  bestToPar: number;
+}
+
+function calculateProgressStats(rounds: PlayerRound[]): ProgressStats | null {
+  const validRounds = rounds.filter(r => r.scorecard?.holeData);
+  if (validRounds.length === 0) return null;
+
+  let totalBirdies = 0;
+  let totalPars = 0;
+  let totalBogeys = 0;
+  let totalDoublePlus = 0;
+  let par3Scores: number[] = [];
+  let par4Scores: number[] = [];
+  let par5Scores: number[] = [];
+  let blowUpHoles = 0;
+  let totalHoles = 0;
+  let roundScores: number[] = [];
+
+  for (const round of validRounds) {
+    const holeData = round.scorecard.holeData as HoleData;
+    if (!holeData) continue;
+
+    roundScores.push(round.scorecard.toPar_gross);
+
+    for (let hole = 1; hole <= 18; hole++) {
+      const par = holeData[`h${hole}_Par`] as number;
+      const gross = holeData[`hole${hole}_gross`] as number;
+      
+      if (typeof par !== 'number' || typeof gross !== 'number') continue;
+      
+      totalHoles++;
+      const scoreToPar = gross - par;
+
+      // Count score types
+      if (scoreToPar <= -1) totalBirdies++;
+      else if (scoreToPar === 0) totalPars++;
+      else if (scoreToPar === 1) totalBogeys++;
+      else totalDoublePlus++;
+
+      // Blow-up holes (triple bogey or worse)
+      if (scoreToPar >= 3) blowUpHoles++;
+
+      // Par type performance
+      if (par === 3) par3Scores.push(gross);
+      else if (par === 4) par4Scores.push(gross);
+      else if (par === 5) par5Scores.push(gross);
+    }
+  }
+
+  const numRounds = validRounds.length;
+  const avgScore = roundScores.reduce((a, b) => a + b, 0) / roundScores.length;
+  
+  // Consistency: % of rounds within ±5 of average to-par
+  const consistentRounds = roundScores.filter(s => Math.abs(s - avgScore) <= 5).length;
+
+  return {
+    avgBirdies: totalBirdies / numRounds,
+    avgPars: totalPars / numRounds,
+    avgBogeys: totalBogeys / numRounds,
+    avgDoublePlus: totalDoublePlus / numRounds,
+    par3Avg: par3Scores.length > 0 ? par3Scores.reduce((a, b) => a + b, 0) / par3Scores.length : 0,
+    par4Avg: par4Scores.length > 0 ? par4Scores.reduce((a, b) => a + b, 0) / par4Scores.length : 0,
+    par5Avg: par5Scores.length > 0 ? par5Scores.reduce((a, b) => a + b, 0) / par5Scores.length : 0,
+    blowUpFrequency: totalHoles > 0 ? (blowUpHoles / totalHoles) * 100 : 0,
+    consistencyScore: (consistentRounds / numRounds) * 100,
+    bestToPar: Math.min(...roundScores),
+  };
+}
 
 export default function Profile() {
   const { player, isLoading: playerLoading } = usePlayer();
@@ -69,6 +155,8 @@ export default function Profile() {
 
     loadProfile();
   }, [player]);
+
+  const progressStats = useMemo(() => calculateProgressStats(rounds), [rounds]);
 
   if (playerLoading || !player) {
     return (
@@ -177,6 +265,106 @@ export default function Profile() {
                 />
               </div>
             </div>
+
+            {/* My Progress */}
+            {progressStats && (
+              <div className="mb-8 animate-slide-up" style={{ animationDelay: "150ms" }}>
+                <h2 className="font-anton text-2xl text-foreground mb-4">
+                  MY PROGRESS
+                </h2>
+                <div className="bg-card rounded-xl border border-border p-6">
+                  {/* Scoring Breakdown */}
+                  <div className="mb-6">
+                    <h3 className="font-inter font-semibold text-foreground mb-4 flex items-center gap-2">
+                      <CircleDot className="h-4 w-4 text-secondary" />
+                      Average Per Round
+                    </h3>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div className="bg-birdie/10 rounded-lg p-4 text-center">
+                        <p className="font-anton text-2xl text-birdie">{progressStats.avgBirdies.toFixed(1)}</p>
+                        <p className="text-xs font-inter text-muted-foreground">Birdies</p>
+                      </div>
+                      <div className="bg-muted rounded-lg p-4 text-center">
+                        <p className="font-anton text-2xl text-foreground">{progressStats.avgPars.toFixed(1)}</p>
+                        <p className="text-xs font-inter text-muted-foreground">Pars</p>
+                      </div>
+                      <div className="bg-bogey/10 rounded-lg p-4 text-center">
+                        <p className="font-anton text-2xl text-bogey">{progressStats.avgBogeys.toFixed(1)}</p>
+                        <p className="text-xs font-inter text-muted-foreground">Bogeys</p>
+                      </div>
+                      <div className="bg-double/10 rounded-lg p-4 text-center">
+                        <p className="font-anton text-2xl text-double">{progressStats.avgDoublePlus.toFixed(1)}</p>
+                        <p className="text-xs font-inter text-muted-foreground">Double+</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Par Performance */}
+                  <div className="mb-6">
+                    <h3 className="font-inter font-semibold text-foreground mb-4 flex items-center gap-2">
+                      <Zap className="h-4 w-4 text-secondary" />
+                      Par Performance
+                    </h3>
+                    <div className="grid grid-cols-3 gap-4">
+                      <div className="bg-muted/50 rounded-lg p-4 text-center">
+                        <p className="font-anton text-2xl text-foreground">{progressStats.par3Avg.toFixed(1)}</p>
+                        <p className="text-xs font-inter text-muted-foreground">Par 3 Avg</p>
+                        <p className={`text-xs font-inter font-medium mt-1 ${progressStats.par3Avg - 3 <= 0 ? 'text-birdie' : 'text-bogey'}`}>
+                          {progressStats.par3Avg - 3 > 0 ? '+' : ''}{(progressStats.par3Avg - 3).toFixed(1)} vs par
+                        </p>
+                      </div>
+                      <div className="bg-muted/50 rounded-lg p-4 text-center">
+                        <p className="font-anton text-2xl text-foreground">{progressStats.par4Avg.toFixed(1)}</p>
+                        <p className="text-xs font-inter text-muted-foreground">Par 4 Avg</p>
+                        <p className={`text-xs font-inter font-medium mt-1 ${progressStats.par4Avg - 4 <= 0 ? 'text-birdie' : 'text-bogey'}`}>
+                          {progressStats.par4Avg - 4 > 0 ? '+' : ''}{(progressStats.par4Avg - 4).toFixed(1)} vs par
+                        </p>
+                      </div>
+                      <div className="bg-muted/50 rounded-lg p-4 text-center">
+                        <p className="font-anton text-2xl text-foreground">{progressStats.par5Avg.toFixed(1)}</p>
+                        <p className="text-xs font-inter text-muted-foreground">Par 5 Avg</p>
+                        <p className={`text-xs font-inter font-medium mt-1 ${progressStats.par5Avg - 5 <= 0 ? 'text-birdie' : 'text-bogey'}`}>
+                          {progressStats.par5Avg - 5 > 0 ? '+' : ''}{(progressStats.par5Avg - 5).toFixed(1)} vs par
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Key Metrics */}
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    <div className="bg-muted/30 rounded-lg p-4 flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-secondary/20 flex items-center justify-center">
+                        <Award className="h-5 w-5 text-secondary" />
+                      </div>
+                      <div>
+                        <p className="font-anton text-xl text-foreground">
+                          {progressStats.bestToPar === 0 ? 'E' : progressStats.bestToPar > 0 ? `+${progressStats.bestToPar}` : progressStats.bestToPar}
+                        </p>
+                        <p className="text-xs font-inter text-muted-foreground">Best To Par</p>
+                      </div>
+                    </div>
+                    <div className="bg-muted/30 rounded-lg p-4 flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-bogey/20 flex items-center justify-center">
+                        <AlertTriangle className="h-5 w-5 text-bogey" />
+                      </div>
+                      <div>
+                        <p className="font-anton text-xl text-foreground">{progressStats.blowUpFrequency.toFixed(1)}%</p>
+                        <p className="text-xs font-inter text-muted-foreground">Blow-up Holes</p>
+                      </div>
+                    </div>
+                    <div className="bg-muted/30 rounded-lg p-4 flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-birdie/20 flex items-center justify-center">
+                        <Gauge className="h-5 w-5 text-birdie" />
+                      </div>
+                      <div>
+                        <p className="font-anton text-xl text-foreground">{progressStats.consistencyScore.toFixed(0)}%</p>
+                        <p className="text-xs font-inter text-muted-foreground">Consistency</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Tour Performance */}
             {standing && (
