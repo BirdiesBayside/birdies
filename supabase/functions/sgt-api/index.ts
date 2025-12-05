@@ -309,6 +309,41 @@ serve(async (req) => {
         })) || [];
         break;
       }
+      
+      case "tournament-results": {
+        if (!params.tournamentId) throw new Error("tournamentId required");
+        
+        // Use service role to bypass RLS for public leaderboard data
+        const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+        const adminClient = createClient(supabaseUrl, serviceKey);
+        
+        const { data: scorecards, error } = await adminClient
+          .from("sgt_scorecards")
+          .select("player_name, hcp_index, total_gross, total_net, to_par_gross, to_par_net")
+          .eq("tournament_id", parseInt(params.tournamentId));
+        
+        if (error) throw error;
+        
+        // Sort by gross or net score
+        const sortBy = params.grossOrNet === "net" ? "to_par_net" : "to_par_gross";
+        const sorted = (scorecards || []).sort((a, b) => {
+          const aScore = a[sortBy] ?? 999;
+          const bScore = b[sortBy] ?? 999;
+          return aScore - bScore;
+        });
+        
+        // Add positions
+        data = sorted.map((sc, index) => ({
+          position: index + 1,
+          player_name: sc.player_name,
+          hcp: sc.hcp_index,
+          total_gross: sc.total_gross,
+          total_net: sc.total_net,
+          to_par_gross: sc.to_par_gross,
+          to_par_net: sc.to_par_net,
+        }));
+        break;
+      }
         
       default:
         throw new Error(`Unknown action: ${action}`);
