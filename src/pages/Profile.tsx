@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+import { Link } from "react-router-dom";
 import { Layout } from "@/components/Layout";
 import { StatCard } from "@/components/StatCard";
 import { ProgressStatCard } from "@/components/ProgressStatCard";
@@ -213,13 +214,25 @@ export default function Profile() {
                   icon={<BarChart3 className="h-5 w-5" />}
                   delay={0}
                 />
-                <StatCard
-                  label="Best Round"
-                  value={bestRound?.scorecard.total_gross ?? "N/A"}
-                  subValue={bestRound?.courseName}
-                  icon={<TrendingDown className="h-5 w-5" />}
-                  delay={100}
-                />
+                {bestRound ? (
+                  <Link to={`/rounds?round=${bestRound.tournamentId}-${bestRound.scorecard?.round || 0}`}>
+                    <StatCard
+                      label="Best Round"
+                      value={bestRound.scorecard.total_gross}
+                      subValue={bestRound.courseName}
+                      icon={<TrendingDown className="h-5 w-5" />}
+                      delay={100}
+                      className="cursor-pointer hover:border-secondary transition-colors"
+                    />
+                  </Link>
+                ) : (
+                  <StatCard
+                    label="Best Round"
+                    value="N/A"
+                    icon={<TrendingDown className="h-5 w-5" />}
+                    delay={100}
+                  />
+                )}
                 <StatCard
                   label="Tour Rank"
                   value={stats?.standing?.position ? `#${stats.standing.position}` : "N/A"}

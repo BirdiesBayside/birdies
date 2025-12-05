@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useSearchParams } from "react-router-dom";
 import { Layout } from "@/components/Layout";
 import { ScorecardDisplay } from "@/components/ScorecardDisplay";
 import { sgtClient, PlayerRound } from "@/lib/sgt-api";
@@ -7,9 +8,12 @@ import { Loader2, MapPin, ChevronDown, ChevronUp } from "lucide-react";
 
 export default function Rounds() {
   const { profile, isLoading: authLoading } = useAuth();
+  const [searchParams] = useSearchParams();
   const [rounds, setRounds] = useState<PlayerRound[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [expandedRound, setExpandedRound] = useState<string | null>(null);
+  const [expandedRound, setExpandedRound] = useState<string | null>(
+    searchParams.get("round")
+  );
 
   useEffect(() => {
     if (authLoading || !profile) return;
