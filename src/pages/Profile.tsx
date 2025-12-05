@@ -3,7 +3,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Layout } from "@/components/Layout";
 import { StatCard } from "@/components/StatCard";
 import { ProgressStatCard } from "@/components/ProgressStatCard";
-import { sgtClient, MemberStats, PlayerRound, TourStanding } from "@/lib/sgt-api";
+import { sgtClient, MemberStats, PlayerRound } from "@/lib/sgt-api";
 import { 
   Loader2, 
   Mail, 
@@ -106,7 +106,6 @@ export default function Profile() {
   const { profile, isLoading: authLoading } = useAuth();
   const [stats, setStats] = useState<MemberStats | null>(null);
   const [rounds, setRounds] = useState<PlayerRound[]>([]);
-  const [standing, setStanding] = useState<TourStanding | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -115,30 +114,13 @@ export default function Profile() {
     async function loadProfile() {
       setIsLoading(true);
       try {
-        const [statsData, roundsData, toursData] = await Promise.all([
+        const [statsData, roundsData] = await Promise.all([
           sgtClient.getMemberStats().catch(() => null),
           sgtClient.getPlayerRounds().catch(() => []),
-          sgtClient.getTours().catch(() => []),
         ]);
 
         setStats(statsData);
         setRounds(roundsData);
-
-        // Get standing from first active tour
-        const activeTour = toursData.find(t => t.active === 1);
-        if (activeTour && profile.display_name) {
-          try {
-            const standingsData = await sgtClient.getTourStandings(activeTour.tourId);
-            const playerStanding = standingsData.find(
-              s => s.user_name.toLowerCase() === profile.display_name?.toLowerCase()
-            );
-            if (playerStanding) {
-              setStanding(playerStanding);
-            }
-          } catch (e) {
-            console.error("Failed to load standings:", e);
-          }
-        }
       } catch (error) {
         console.error("Failed to load profile:", error);
       } finally {
@@ -240,8 +222,8 @@ export default function Profile() {
                 />
                 <StatCard
                   label="Tour Rank"
-                  value={standing?.position ? `#${standing.position}` : "N/A"}
-                  subValue={standing ? `${standing.points} points` : undefined}
+                  value={stats?.standing?.position ? `#${stats.standing.position}` : "N/A"}
+                  subValue={stats?.standing ? `${stats.standing.points} points` : undefined}
                   icon={<Trophy className="h-5 w-5" />}
                   delay={200}
                 />
@@ -373,7 +355,7 @@ export default function Profile() {
             )}
 
             {/* Tour Performance */}
-            {standing && (
+            {stats?.standing && (
               <div className="mb-8 animate-slide-up" style={{ animationDelay: "200ms" }}>
                 <h2 className="font-anton text-2xl text-foreground mb-4">
                   TOUR PERFORMANCE
@@ -381,23 +363,23 @@ export default function Profile() {
                 <div className="bg-card rounded-xl border border-border p-6">
                   <div className="grid grid-cols-2 md:grid-cols-5 gap-6 text-center">
                     <div>
-                      <p className="text-3xl font-anton text-foreground">{standing.events}</p>
+                      <p className="text-3xl font-anton text-foreground">{stats.standing.events}</p>
                       <p className="text-sm font-inter text-muted-foreground">Events</p>
                     </div>
                     <div>
-                      <p className="text-3xl font-anton text-secondary">{standing.first || 0}</p>
+                      <p className="text-3xl font-anton text-secondary">{stats.standing.first || 0}</p>
                       <p className="text-sm font-inter text-muted-foreground">Wins</p>
                     </div>
                     <div>
-                      <p className="text-3xl font-anton text-foreground">{standing.top5 || 0}</p>
+                      <p className="text-3xl font-anton text-foreground">{stats.standing.top5 || 0}</p>
                       <p className="text-sm font-inter text-muted-foreground">Top 5</p>
                     </div>
                     <div>
-                      <p className="text-3xl font-anton text-foreground">{standing.top10 || 0}</p>
+                      <p className="text-3xl font-anton text-foreground">{stats.standing.top10 || 0}</p>
                       <p className="text-sm font-inter text-muted-foreground">Top 10</p>
                     </div>
                     <div>
-                      <p className="text-3xl font-anton text-foreground">{standing.points}</p>
+                      <p className="text-3xl font-anton text-secondary">{stats.standing.points}</p>
                       <p className="text-sm font-inter text-muted-foreground">Points</p>
                     </div>
                   </div>
