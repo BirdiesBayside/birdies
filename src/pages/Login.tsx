@@ -55,10 +55,6 @@ export default function Login() {
       }
 
       setPlayer(member);
-      toast({
-        title: `Welcome, ${member.user_name}!`,
-        description: "Let's check your performance.",
-      });
       navigate("/dashboard");
     } catch (err) {
       console.error("Failed to load members:", err);
