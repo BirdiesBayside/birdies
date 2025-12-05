@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { usePlayer } from "@/contexts/PlayerContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { Layout } from "@/components/Layout";
 import { StatCard } from "@/components/StatCard";
 import { ScorecardDisplay } from "@/components/ScorecardDisplay";
@@ -19,11 +18,9 @@ import {
 import { Link } from "react-router-dom";
 
 export default function Dashboard() {
-  const { player, isLoading: playerLoading } = usePlayer();
-  const navigate = useNavigate();
+  const { profile, isLoading: authLoading } = useAuth();
   const [stats, setStats] = useState<MemberStats | null>(null);
   const [recentRounds, setRecentRounds] = useState<PlayerRound[]>([]);
-  const [tours, setTours] = useState<Tour[]>([]);
   const [standings, setStandings] = useState<TourStanding | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [expandedRound, setExpandedRound] = useState<string | null>(null);
@@ -33,35 +30,28 @@ export default function Dashboard() {
   };
 
   useEffect(() => {
-    if (!playerLoading && !player) {
-      navigate("/");
-    }
-  }, [player, playerLoading, navigate]);
-
-  useEffect(() => {
-    if (!player) return;
+    if (authLoading || !profile) return;
 
     async function loadDashboard() {
       setIsLoading(true);
       try {
         // Load all data in parallel
         const [statsData, roundsData, toursData] = await Promise.all([
-          sgtClient.getMemberStats(player.user_id).catch(() => null),
-          sgtClient.getPlayerRounds(player.user_id).catch(() => []),
+          sgtClient.getMemberStats().catch(() => null),
+          sgtClient.getPlayerRounds().catch(() => []),
           sgtClient.getTours().catch(() => []),
         ]);
 
         setStats(statsData);
         setRecentRounds(roundsData.slice(0, 5));
-        setTours(toursData.filter(t => t.active === 1));
 
         // Get standings from first active tour
         const activeTour = toursData.find(t => t.active === 1);
-        if (activeTour) {
+        if (activeTour && profile.display_name) {
           try {
             const standingsData = await sgtClient.getTourStandings(activeTour.tourId);
             const playerStanding = standingsData.find(
-              s => s.user_name.toLowerCase() === player.user_name.toLowerCase()
+              s => s.user_name.toLowerCase() === profile.display_name?.toLowerCase()
             );
             if (playerStanding) {
               setStandings(playerStanding);
@@ -78,9 +68,9 @@ export default function Dashboard() {
     }
 
     loadDashboard();
-  }, [player]);
+  }, [profile, authLoading]);
 
-  if (playerLoading || !player) {
+  if (authLoading || !profile) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 text-secondary animate-spin" />
@@ -88,12 +78,14 @@ export default function Dashboard() {
     );
   }
 
+  const displayName = profile.display_name || profile.email?.split("@")[0] || "Golfer";
+
   return (
     <Layout>
       {/* Welcome Section */}
       <div className="mb-8 animate-fade-in">
         <h1 className="font-anton text-3xl md:text-4xl text-foreground mb-2">
-          WELCOME BACK, {player.user_name.toUpperCase()}
+          WELCOME BACK, {displayName.toUpperCase()}
         </h1>
         <p className="font-inter text-muted-foreground">
           Here's your latest performance at Birdies

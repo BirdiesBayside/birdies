@@ -1,31 +1,23 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { usePlayer } from "@/contexts/PlayerContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { Layout } from "@/components/Layout";
 import { ScorecardDisplay } from "@/components/ScorecardDisplay";
 import { sgtClient, PlayerRound } from "@/lib/sgt-api";
 import { Loader2, MapPin, ChevronDown, ChevronUp } from "lucide-react";
 
 export default function Rounds() {
-  const { player, isLoading: playerLoading } = usePlayer();
-  const navigate = useNavigate();
+  const { profile, isLoading: authLoading } = useAuth();
   const [rounds, setRounds] = useState<PlayerRound[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [expandedRound, setExpandedRound] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!playerLoading && !player) {
-      navigate("/");
-    }
-  }, [player, playerLoading, navigate]);
-
-  useEffect(() => {
-    if (!player) return;
+    if (authLoading || !profile) return;
 
     async function loadRounds() {
       setIsLoading(true);
       try {
-        const data = await sgtClient.getPlayerRounds(player.user_id);
+        const data = await sgtClient.getPlayerRounds();
         setRounds(data);
       } catch (error) {
         console.error("Failed to load rounds:", error);
@@ -35,9 +27,9 @@ export default function Rounds() {
     }
 
     loadRounds();
-  }, [player]);
+  }, [profile, authLoading]);
 
-  if (playerLoading || !player) {
+  if (authLoading || !profile) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 text-secondary animate-spin" />

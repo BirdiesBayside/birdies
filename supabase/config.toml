@@ -1,7 +1,7 @@
 project_id = "gjzvfnbeksfakmejgtto"
 
 [functions.sgt-api]
-verify_jwt = false
+verify_jwt = true
 
 [functions.sgt-sync]
 verify_jwt = false

@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { usePlayer } from "@/contexts/PlayerContext";
+import { useAuth } from "@/contexts/AuthContext";
 import birdiesLogo from "@/assets/birdies-logo.png";
 import { 
   LayoutDashboard, 
@@ -26,13 +26,13 @@ const navItems = [
 ];
 
 export function Layout({ children }: LayoutProps) {
-  const { player, logout } = usePlayer();
+  const { profile, signOut } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await signOut();
     navigate("/");
   };
 
@@ -74,7 +74,7 @@ export function Layout({ children }: LayoutProps) {
           {/* User & Logout */}
           <div className="hidden md:flex items-center gap-4">
             <span className="text-primary-foreground/80 text-sm font-inter">
-              {player?.user_name}
+              {profile?.display_name || profile?.email?.split("@")[0]}
             </span>
             <button
               onClick={handleLogout}
