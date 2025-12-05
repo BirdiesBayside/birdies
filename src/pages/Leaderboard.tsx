@@ -53,11 +53,13 @@ export default function Leaderboard() {
     async function loadTournaments() {
       try {
         const data = await sgtClient.getTournaments(selectedTour);
-        // Filter to completed tournaments and sort by date
-        const completedTournaments = data.results.filter(t => t.status === "Completed");
-        setTournaments(completedTournaments);
-        if (completedTournaments.length > 0) {
-          setSelectedTournament(completedTournaments[0].tournamentId);
+        // Include In Progress and Completed tournaments (exclude future ones)
+        const availableTournaments = data.results.filter(t => 
+          t.status === "Completed" || t.status === "In Progress"
+        );
+        setTournaments(availableTournaments);
+        if (availableTournaments.length > 0) {
+          setSelectedTournament(availableTournaments[0].tournamentId);
         }
       } catch (error) {
         console.error("Failed to load tournaments:", error);
