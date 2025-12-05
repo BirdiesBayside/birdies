@@ -199,31 +199,65 @@ serve(async (req) => {
         // Users can only get their own stats
         const userId = userSgtId;
         if (!userId) {
-          data = { tours: [], handicap: null, totalRounds: 0 };
+          data = { tours: [], handicap: null, totalRounds: 0, standing: null };
           break;
         }
+        
+        // Get user's SGT username from sgt_members
+        const { data: sgtMember } = await supabase
+          .from("sgt_members")
+          .select("user_name")
+          .eq("user_id", userId)
+          .single();
+        
+        const sgtUserName = sgtMember?.user_name;
         
         // Get tour memberships with handicap info
         const { data: tourMemberships, error: tmError } = await supabase
           .from("sgt_tour_members")
-          .select("*, sgt_tours!inner(name, active)")
+          .select("*, sgt_tours!inner(name, active, tour_id)")
           .eq("user_id", userId);
         
         if (tmError) throw tmError;
         
-        const tours = tourMemberships
-          ?.filter(tm => tm.sgt_tours?.active === 1)
-          .map(tm => ({
-            tourId: tm.tour_id,
-            tourName: tm.sgt_tours?.name,
-            handicap: tm.hcp_index || 0,
-            customHandicap: tm.custom_hcp || 0,
-          })) || [];
+        const activeTourMemberships = tourMemberships?.filter(tm => tm.sgt_tours?.active === 1) || [];
+        
+        const tours = activeTourMemberships.map(tm => ({
+          tourId: tm.tour_id,
+          tourName: tm.sgt_tours?.name,
+          handicap: tm.hcp_index || 0,
+          customHandicap: tm.custom_hcp || 0,
+        }));
+        
+        // Get user's standing in the active tour
+        let standing = null;
+        if (sgtUserName && activeTourMemberships.length > 0) {
+          const activeTourId = activeTourMemberships[0].tour_id;
+          const { data: standingData } = await supabase
+            .from("sgt_tour_standings")
+            .select("position, points, first, top5, top10, events")
+            .eq("tour_id", activeTourId)
+            .eq("user_name", sgtUserName)
+            .eq("gross_or_net", "gross")
+            .single();
+          
+          if (standingData) {
+            standing = {
+              position: standingData.position,
+              points: standingData.points,
+              first: standingData.first,
+              top5: standingData.top5,
+              top10: standingData.top10,
+              events: standingData.events,
+            };
+          }
+        }
         
         data = {
           tours,
           handicap: tours.length > 0 ? tours[0].handicap : null,
           totalRounds: 0,
+          standing,
         };
         break;
       }

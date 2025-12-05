@@ -73,6 +73,15 @@ export interface PlayerRound {
   scorecard: Scorecard;
 }
 
+export interface UserStanding {
+  position: number;
+  points: number;
+  first: number;
+  top5: number;
+  top10: number;
+  events: number;
+}
+
 export interface MemberStats {
   tours: {
     tourId: number;
@@ -82,6 +91,7 @@ export interface MemberStats {
   }[];
   handicap: number | null;
   totalRounds: number;
+  standing: UserStanding | null;
 }
 
 async function sgtApi<T>(action: string, params: Record<string, string> = {}): Promise<T> {

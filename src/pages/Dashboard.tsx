@@ -3,7 +3,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Layout } from "@/components/Layout";
 import { StatCard } from "@/components/StatCard";
 import { ScorecardDisplay } from "@/components/ScorecardDisplay";
-import { sgtClient, MemberStats, PlayerRound, Tour, TourStanding } from "@/lib/sgt-api";
+import { sgtClient, MemberStats, PlayerRound } from "@/lib/sgt-api";
 import { 
   Target, 
   TrendingUp, 
@@ -21,7 +21,6 @@ export default function Dashboard() {
   const { profile, isLoading: authLoading } = useAuth();
   const [stats, setStats] = useState<MemberStats | null>(null);
   const [recentRounds, setRecentRounds] = useState<PlayerRound[]>([]);
-  const [standings, setStandings] = useState<TourStanding | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [expandedRound, setExpandedRound] = useState<string | null>(null);
 
@@ -35,31 +34,13 @@ export default function Dashboard() {
     async function loadDashboard() {
       setIsLoading(true);
       try {
-        // Load all data in parallel
-        const [statsData, roundsData, toursData] = await Promise.all([
+        const [statsData, roundsData] = await Promise.all([
           sgtClient.getMemberStats().catch(() => null),
           sgtClient.getPlayerRounds().catch(() => []),
-          sgtClient.getTours().catch(() => []),
         ]);
 
         setStats(statsData);
         setRecentRounds(roundsData.slice(0, 5));
-
-        // Get standings from first active tour
-        const activeTour = toursData.find(t => t.active === 1);
-        if (activeTour && profile.display_name) {
-          try {
-            const standingsData = await sgtClient.getTourStandings(activeTour.tourId);
-            const playerStanding = standingsData.find(
-              s => s.user_name.toLowerCase() === profile.display_name?.toLowerCase()
-            );
-            if (playerStanding) {
-              setStandings(playerStanding);
-            }
-          } catch (e) {
-            console.error("Failed to load standings:", e);
-          }
-        }
       } catch (error) {
         console.error("Failed to load dashboard:", error);
       } finally {
@@ -115,14 +96,14 @@ export default function Dashboard() {
             />
             <StatCard
               label="Tour Position"
-              value={standings?.position ? `#${standings.position}` : "N/A"}
-              subValue={standings ? `${standings.points} pts` : undefined}
+              value={stats?.standing?.position ? `#${stats.standing.position}` : "N/A"}
+              subValue={stats?.standing ? `${stats.standing.points} pts` : undefined}
               icon={<Trophy className="h-5 w-5" />}
               delay={200}
             />
             <StatCard
               label="Best Finish"
-              value={standings?.first ? `${standings.first} Win${standings.first > 1 ? "s" : ""}` : standings?.top5 ? `${standings.top5} Top 5` : "N/A"}
+              value={stats?.standing?.first ? `${stats.standing.first} Win${stats.standing.first > 1 ? "s" : ""}` : stats?.standing?.top5 ? `${stats.standing.top5} Top 5` : "N/A"}
               icon={<TrendingUp className="h-5 w-5" />}
               delay={300}
             />
