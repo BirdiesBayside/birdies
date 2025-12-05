@@ -53,10 +53,15 @@ export default function Leaderboard() {
     async function loadTournaments() {
       try {
         const data = await sgtClient.getTournaments(selectedTour);
-        // Include In Progress and Completed tournaments (exclude future ones)
-        const availableTournaments = data.results.filter(t => 
-          t.status === "Completed" || t.status === "In Progress"
-        );
+        // Include In Progress and Completed tournaments
+        // Filter out "Final Week" unless it's currently in progress
+        const availableTournaments = data.results.filter(t => {
+          const isFinalWeek = t.name.toLowerCase().includes("final week");
+          if (isFinalWeek) {
+            return t.status === "In Progress";
+          }
+          return t.status === "Completed" || t.status === "In Progress";
+        });
         setTournaments(availableTournaments);
         if (availableTournaments.length > 0) {
           setSelectedTournament(availableTournaments[0].tournamentId);
