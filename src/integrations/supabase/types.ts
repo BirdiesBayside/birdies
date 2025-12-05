@@ -372,7 +372,33 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      sgt_members_safe: {
+        Row: {
+          updated_at: string | null
+          user_active: number | null
+          user_country_code: string | null
+          user_has_avatar: string | null
+          user_id: number | null
+          user_name: string | null
+        }
+        Insert: {
+          updated_at?: string | null
+          user_active?: number | null
+          user_country_code?: string | null
+          user_has_avatar?: string | null
+          user_id?: number | null
+          user_name?: string | null
+        }
+        Update: {
+          updated_at?: string | null
+          user_active?: number | null
+          user_country_code?: string | null
+          user_has_avatar?: string | null
+          user_id?: number | null
+          user_name?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       get_user_sgt_id: { Args: { _user_id: string }; Returns: number }
