@@ -265,10 +265,11 @@ serve(async (req) => {
             for (const scorecard of scorecards) {
               const sc = scorecard as Record<string, unknown>;
               
-              // Extract hole data (all hole-related fields)
+              // Extract ALL hole-related fields (h1_Par, h1_index, hole1_gross, hole1_net, etc.)
               const holeData: Record<string, unknown> = {};
               for (const [key, value] of Object.entries(sc)) {
-                if (key.startsWith('h') && /^h\d+/.test(key)) {
+                // Capture h*_Par, h*_index, hole*_gross, hole*_net patterns
+                if (/^h\d+/.test(key) || /^hole\d+/.test(key)) {
                   holeData[key] = value;
                 }
               }
