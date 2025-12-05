@@ -1,0 +1,215 @@
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { usePlayer } from "@/contexts/PlayerContext";
+import { Layout } from "@/components/Layout";
+import { StatCard } from "@/components/StatCard";
+import { ScorecardDisplay } from "@/components/ScorecardDisplay";
+import { sgtClient, MemberStats, PlayerRound, Tour, TourStanding } from "@/lib/sgt-api";
+import { 
+  Target, 
+  TrendingUp, 
+  Trophy, 
+  Calendar,
+  Loader2,
+  MapPin,
+  ChevronRight
+} from "lucide-react";
+import { Link } from "react-router-dom";
+
+export default function Dashboard() {
+  const { player, isLoading: playerLoading } = usePlayer();
+  const navigate = useNavigate();
+  const [stats, setStats] = useState<MemberStats | null>(null);
+  const [recentRounds, setRecentRounds] = useState<PlayerRound[]>([]);
+  const [tours, setTours] = useState<Tour[]>([]);
+  const [standings, setStandings] = useState<TourStanding | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    if (!playerLoading && !player) {
+      navigate("/");
+    }
+  }, [player, playerLoading, navigate]);
+
+  useEffect(() => {
+    if (!player) return;
+
+    async function loadDashboard() {
+      setIsLoading(true);
+      try {
+        // Load all data in parallel
+        const [statsData, roundsData, toursData] = await Promise.all([
+          sgtClient.getMemberStats(player.user_id).catch(() => null),
+          sgtClient.getPlayerRounds(player.user_id).catch(() => []),
+          sgtClient.getTours().catch(() => []),
+        ]);
+
+        setStats(statsData);
+        setRecentRounds(roundsData.slice(0, 5));
+        setTours(toursData.filter(t => t.active === 1));
+
+        // Get standings from first active tour
+        const activeTour = toursData.find(t => t.active === 1);
+        if (activeTour) {
+          try {
+            const standingsData = await sgtClient.getTourStandings(activeTour.tourId);
+            const playerStanding = standingsData.find(
+              s => s.user_name.toLowerCase() === player.user_name.toLowerCase()
+            );
+            if (playerStanding) {
+              setStandings(playerStanding);
+            }
+          } catch (e) {
+            console.error("Failed to load standings:", e);
+          }
+        }
+      } catch (error) {
+        console.error("Failed to load dashboard:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    loadDashboard();
+  }, [player]);
+
+  if (playerLoading || !player) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="h-8 w-8 text-secondary animate-spin" />
+      </div>
+    );
+  }
+
+  return (
+    <Layout>
+      {/* Welcome Section */}
+      <div className="mb-8 animate-fade-in">
+        <h1 className="font-anton text-3xl md:text-4xl text-foreground mb-2">
+          WELCOME BACK, {player.user_name.toUpperCase()}
+        </h1>
+        <p className="font-inter text-muted-foreground">
+          Here's your latest performance at Birdies
+        </p>
+      </div>
+
+      {isLoading ? (
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="h-8 w-8 text-secondary animate-spin" />
+        </div>
+      ) : (
+        <>
+          {/* Stats Grid */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+            <StatCard
+              label="Handicap"
+              value={stats?.handicap ?? "N/A"}
+              icon={<Target className="h-5 w-5" />}
+              delay={0}
+            />
+            <StatCard
+              label="Rounds Played"
+              value={recentRounds.length}
+              subValue="This season"
+              icon={<Calendar className="h-5 w-5" />}
+              delay={100}
+            />
+            <StatCard
+              label="Tour Position"
+              value={standings?.position ? `#${standings.position}` : "N/A"}
+              subValue={standings ? `${standings.points} pts` : undefined}
+              icon={<Trophy className="h-5 w-5" />}
+              delay={200}
+            />
+            <StatCard
+              label="Best Finish"
+              value={standings?.first ? `${standings.first} Win${standings.first > 1 ? "s" : ""}` : standings?.top5 ? `${standings.top5} Top 5` : "N/A"}
+              icon={<TrendingUp className="h-5 w-5" />}
+              delay={300}
+            />
+          </div>
+
+          {/* Recent Rounds */}
+          <div className="mb-8 animate-slide-up" style={{ animationDelay: "200ms" }}>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="font-anton text-2xl text-foreground">RECENT ROUNDS</h2>
+              <Link 
+                to="/rounds"
+                className="flex items-center gap-1 text-secondary font-inter font-medium text-sm hover:underline"
+              >
+                View all <ChevronRight className="h-4 w-4" />
+              </Link>
+            </div>
+
+            {recentRounds.length === 0 ? (
+              <div className="bg-card rounded-xl border border-border p-8 text-center">
+                <p className="text-muted-foreground font-inter">
+                  No rounds recorded yet. Get out there and play!
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {recentRounds.slice(0, 3).map((round) => (
+                  <div 
+                    key={round.tournamentId}
+                    className="bg-card rounded-xl border border-border p-4 hover:shadow-md transition-shadow"
+                  >
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-3">
+                      <div>
+                        <h3 className="font-inter font-semibold text-foreground">
+                          {round.tournamentName}
+                        </h3>
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground font-inter">
+                          <MapPin className="h-3 w-3" />
+                          {round.courseName}
+                          <span className="text-border">•</span>
+                          {new Date(round.date).toLocaleDateString("en-AU", {
+                            day: "numeric",
+                            month: "short",
+                            year: "numeric"
+                          })}
+                        </div>
+                      </div>
+                      <span className={`px-3 py-1 rounded-full text-xs font-inter font-medium ${
+                        round.status === "Completed" 
+                          ? "bg-birdie/20 text-birdie" 
+                          : "bg-secondary/20 text-secondary"
+                      }`}>
+                        {round.status}
+                      </span>
+                    </div>
+                    <ScorecardDisplay scorecard={round.scorecard} />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Quick Links */}
+          <div className="grid md:grid-cols-2 gap-4 animate-slide-up" style={{ animationDelay: "300ms" }}>
+            <Link
+              to="/leaderboard"
+              className="bg-primary text-primary-foreground rounded-xl p-6 hover:shadow-lg transition-all hover:-translate-y-0.5 group"
+            >
+              <Trophy className="h-8 w-8 mb-3 group-hover:animate-float" />
+              <h3 className="font-anton text-xl mb-1">VIEW LEADERBOARD</h3>
+              <p className="font-inter text-primary-foreground/80 text-sm">
+                See how you stack up against other players
+              </p>
+            </Link>
+            <Link
+              to="/rounds"
+              className="bg-secondary text-secondary-foreground rounded-xl p-6 hover:shadow-lg transition-all hover:-translate-y-0.5 group"
+            >
+              <Calendar className="h-8 w-8 mb-3 group-hover:animate-float" />
+              <h3 className="font-anton text-xl mb-1">ROUND HISTORY</h3>
+              <p className="font-inter text-secondary-foreground/80 text-sm">
+                View detailed scorecards from all your rounds
+              </p>
+            </Link>
+          </div>
+        </>
+      )}
+    </Layout>
+  );
+}

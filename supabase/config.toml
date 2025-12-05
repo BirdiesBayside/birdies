@@ -1,1 +1,4 @@
 project_id = "gjzvfnbeksfakmejgtto"
+
+[functions.sgt-api]
+verify_jwt = false
