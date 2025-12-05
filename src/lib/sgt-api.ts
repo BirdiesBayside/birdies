@@ -94,6 +94,16 @@ export interface MemberStats {
   standing: UserStanding | null;
 }
 
+export interface TournamentResult {
+  position: number;
+  player_name: string;
+  hcp: number;
+  total_gross: number;
+  total_net: number;
+  to_par_gross: number;
+  to_par_net: number;
+}
+
 async function sgtApi<T>(action: string, params: Record<string, string> = {}): Promise<T> {
   // Get the current session for auth header
   const { data: { session } } = await supabase.auth.getSession();
@@ -143,4 +153,7 @@ export const sgtClient = {
   
   getPlayerRounds: () =>
     sgtApi<PlayerRound[]>("player-rounds", {}),
+  
+  getTournamentResults: (tournamentId: number, grossOrNet: "gross" | "net" = "gross") =>
+    sgtApi<TournamentResult[]>("tournament-results", { tournamentId: tournamentId.toString(), grossOrNet }),
 };
