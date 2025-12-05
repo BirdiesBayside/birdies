@@ -3,15 +3,14 @@ import { useNavigate } from "react-router-dom";
 import { usePlayer } from "@/contexts/PlayerContext";
 import { sgtClient, Member } from "@/lib/sgt-api";
 import birdiesLogo from "@/assets/birdies-logo.png";
-import { Search, Loader2, ChevronRight } from "lucide-react";
+import { Mail, Loader2, ArrowRight } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
 
 export default function Login() {
-  const [members, setMembers] = useState<Member[]>([]);
-  const [filteredMembers, setFilteredMembers] = useState<Member[]>([]);
-  const [search, setSearch] = useState("");
-  const [isLoading, setIsLoading] = useState(true);
+  const [email, setEmail] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { setPlayer, player } = usePlayer();
   const navigate = useNavigate();
@@ -23,57 +22,61 @@ export default function Login() {
     }
   }, [player, navigate]);
 
-  useEffect(() => {
-    async function loadMembers() {
-      try {
-        setIsLoading(true);
-        setError(null);
-        const data = await sgtClient.getMembers();
-        const activeMembers = data.members?.filter(m => m.user_active === 1) || [];
-        setMembers(activeMembers);
-        setFilteredMembers(activeMembers);
-      } catch (err) {
-        console.error("Failed to load members:", err);
-        setError("Failed to connect to Birdies. Please try again later.");
-      } finally {
-        setIsLoading(false);
-      }
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!email.trim()) {
+      setError("Please enter your email address");
+      return;
     }
-    loadMembers();
-  }, []);
 
-  useEffect(() => {
-    if (search.trim() === "") {
-      setFilteredMembers(members);
-    } else {
-      const query = search.toLowerCase();
-      setFilteredMembers(
-        members.filter(m => 
-          m.user_name.toLowerCase().includes(query) ||
-          m.user_email?.toLowerCase().includes(query)
-        )
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const data = await sgtClient.getMembers();
+      const members = data.members || [];
+      
+      // Find member by email (case-insensitive)
+      const member = members.find(
+        (m: Member) => m.user_email?.toLowerCase() === email.trim().toLowerCase()
       );
-    }
-  }, [search, members]);
 
-  const handleSelectPlayer = (member: Member) => {
-    setPlayer(member);
-    toast({
-      title: `Welcome, ${member.user_name}!`,
-      description: "Let's check your performance.",
-    });
-    navigate("/dashboard");
+      if (!member) {
+        setError("No account found with this email. Please contact Birdies staff.");
+        setIsLoading(false);
+        return;
+      }
+
+      if (member.user_active !== 1) {
+        setError("Your account is not active. Please contact Birdies staff.");
+        setIsLoading(false);
+        return;
+      }
+
+      setPlayer(member);
+      toast({
+        title: `Welcome, ${member.user_name}!`,
+        description: "Let's check your performance.",
+      });
+      navigate("/dashboard");
+    } catch (err) {
+      console.error("Failed to load members:", err);
+      setError("Failed to connect to Birdies. Please try again later.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Hero Header */}
-      <div className="hero-section py-12 px-4">
+      <div className="hero-section py-16 px-4">
         <div className="container max-w-lg mx-auto text-center">
           <img 
             src={birdiesLogo} 
             alt="Birdies Golf Simulator" 
-            className="h-20 w-auto mx-auto mb-6 animate-fade-in"
+            className="h-24 w-auto mx-auto mb-8 animate-fade-in"
           />
           <h1 className="font-anton text-4xl md:text-5xl text-primary-foreground mb-3 animate-slide-up">
             BIRDIES HUB
@@ -85,80 +88,62 @@ export default function Login() {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 container max-w-lg mx-auto px-4 py-8">
-        <div className="bg-card rounded-2xl shadow-lg border border-border p-6 animate-scale-in">
-          <h2 className="font-anton text-2xl text-foreground mb-2">
-            SELECT YOUR PROFILE
+      <div className="flex-1 container max-w-md mx-auto px-4 py-8">
+        <div className="bg-card rounded-2xl shadow-lg border border-border p-8 animate-scale-in">
+          <h2 className="font-anton text-2xl text-foreground mb-2 text-center">
+            SIGN IN
           </h2>
-          <p className="font-inter text-muted-foreground mb-6">
-            Find your name to view your stats and rounds
+          <p className="font-inter text-muted-foreground mb-8 text-center">
+            Enter your email to view your stats
           </p>
 
-          {/* Search */}
-          <div className="relative mb-6">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-            <Input
-              type="text"
-              placeholder="Search by name or email..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-10 h-12 font-inter text-base"
-            />
-          </div>
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Email Input */}
+            <div className="relative">
+              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+              <Input
+                type="email"
+                placeholder="your@email.com"
+                value={email}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  setError(null);
+                }}
+                className="pl-10 h-14 font-inter text-base"
+                disabled={isLoading}
+              />
+            </div>
 
-          {/* Members List */}
-          <div className="space-y-2 max-h-[400px] overflow-y-auto">
-            {isLoading ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="h-8 w-8 text-secondary animate-spin" />
-              </div>
-            ) : error ? (
-              <div className="text-center py-8">
-                <p className="text-destructive font-inter mb-4">{error}</p>
-                <button
-                  onClick={() => window.location.reload()}
-                  className="px-4 py-2 bg-secondary text-secondary-foreground rounded-lg font-inter font-medium hover:bg-secondary/90 transition-colors"
-                >
-                  Try Again
-                </button>
-              </div>
-            ) : filteredMembers.length === 0 ? (
-              <div className="text-center py-8">
-                <p className="text-muted-foreground font-inter">
-                  {search ? "No members found matching your search" : "No members available"}
-                </p>
-              </div>
-            ) : (
-              filteredMembers.map((member) => (
-                <button
-                  key={member.user_id}
-                  onClick={() => handleSelectPlayer(member)}
-                  className="w-full flex items-center justify-between p-4 rounded-xl border border-border hover:border-secondary hover:bg-secondary/5 transition-all group"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-anton text-lg">
-                      {member.user_name.charAt(0).toUpperCase()}
-                    </div>
-                    <div className="text-left">
-                      <p className="font-inter font-semibold text-foreground">
-                        {member.user_name}
-                      </p>
-                      {member.user_email && (
-                        <p className="font-inter text-sm text-muted-foreground">
-                          {member.user_email}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                  <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-secondary transition-colors" />
-                </button>
-              ))
+            {/* Error Message */}
+            {error && (
+              <p className="text-destructive font-inter text-sm text-center">
+                {error}
+              </p>
             )}
-          </div>
+
+            {/* Submit Button */}
+            <Button
+              type="submit"
+              disabled={isLoading}
+              className="w-full h-14 font-inter font-semibold text-base gap-2"
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  Loading...
+                </>
+              ) : (
+                <>
+                  View My Stats
+                  <ArrowRight className="h-5 w-5" />
+                </>
+              )}
+            </Button>
+          </form>
         </div>
 
         <p className="text-center text-sm text-muted-foreground font-inter mt-6">
-          Can't find your profile? Contact Birdies staff.
+          Don't have an account? Contact Birdies staff.
         </p>
       </div>
     </div>
