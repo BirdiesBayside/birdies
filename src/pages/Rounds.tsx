@@ -11,7 +11,7 @@ export default function Rounds() {
   const navigate = useNavigate();
   const [rounds, setRounds] = useState<PlayerRound[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [expandedRound, setExpandedRound] = useState<number | null>(null);
+  const [expandedRound, setExpandedRound] = useState<string | null>(null);
 
   useEffect(() => {
     if (!playerLoading && !player) {
@@ -45,8 +45,8 @@ export default function Rounds() {
     );
   }
 
-  const toggleExpand = (tournamentId: number) => {
-    setExpandedRound(expandedRound === tournamentId ? null : tournamentId);
+  const toggleExpand = (roundKey: string) => {
+    setExpandedRound(expandedRound === roundKey ? null : roundKey);
   };
 
   return (
@@ -73,14 +73,16 @@ export default function Rounds() {
         </div>
       ) : (
         <div className="space-y-4">
-          {rounds.map((round, index) => (
+          {rounds.map((round, index) => {
+            const roundKey = `${round.tournamentId}-${round.scorecard?.round || index}`;
+            return (
             <div 
-              key={round.tournamentId}
+              key={roundKey}
               className="bg-card rounded-xl border border-border overflow-hidden animate-slide-up"
               style={{ animationDelay: `${index * 50}ms` }}
             >
               <button
-                onClick={() => toggleExpand(round.tournamentId)}
+                onClick={() => toggleExpand(roundKey)}
                 className="w-full p-4 flex items-center justify-between hover:bg-muted/30 transition-colors"
               >
                 <div className="flex-1 text-left">
@@ -122,7 +124,7 @@ export default function Rounds() {
                        round.scorecard.toPar_gross}
                     </div>
                   </div>
-                  {expandedRound === round.tournamentId ? (
+                  {expandedRound === roundKey ? (
                     <ChevronUp className="h-5 w-5 text-muted-foreground" />
                   ) : (
                     <ChevronDown className="h-5 w-5 text-muted-foreground" />
@@ -130,13 +132,14 @@ export default function Rounds() {
                 </div>
               </button>
 
-              {expandedRound === round.tournamentId && (
+              {expandedRound === roundKey && (
                 <div className="px-4 pb-4 pt-2 border-t border-border animate-fade-in">
                   <ScorecardDisplay scorecard={round.scorecard} showDetails />
                 </div>
               )}
             </div>
-          ))}
+          );
+          })}
         </div>
       )}
     </Layout>
