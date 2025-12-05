@@ -180,7 +180,7 @@ export default function Leaderboard() {
             value={selectedTournament?.toString()}
             onValueChange={(val) => setSelectedTournament(parseInt(val))}
           >
-            <SelectTrigger className="w-full sm:w-[300px] font-inter">
+            <SelectTrigger className="w-full sm:w-[350px] font-inter">
               <SelectValue placeholder="Select week" />
             </SelectTrigger>
             <SelectContent>
@@ -189,6 +189,11 @@ export default function Leaderboard() {
                   <div className="flex items-center gap-2">
                     <Calendar className="h-4 w-4" />
                     <span>Week {getWeekNumber(index)}: {tournament.name}</span>
+                    {index === 0 && (
+                      <span className="ml-1 px-1.5 py-0.5 text-[10px] font-semibold bg-secondary text-secondary-foreground rounded">
+                        CURRENT
+                      </span>
+                    )}
                   </div>
                 </SelectItem>
               ))}
