@@ -378,7 +378,16 @@ export default function Leaderboard() {
               </div>
             )}
 
-            {/* Table Header */}
+            {/* Table Header - Mobile */}
+            <div className="grid md:hidden grid-cols-12 gap-4 px-4 py-2 bg-muted/50 border-b border-border font-inter text-xs font-medium text-muted-foreground">
+              <div className="col-span-2 text-center">#</div>
+              <div className="col-span-4">Player</div>
+              <div className="col-span-2 text-center">R1</div>
+              <div className="col-span-2 text-center">R2</div>
+              <div className="col-span-2 text-center">+/-</div>
+            </div>
+
+            {/* Table Header - Desktop */}
             <div className="hidden md:grid grid-cols-12 gap-4 px-4 py-3 bg-muted/50 border-b border-border font-inter text-sm font-medium text-muted-foreground">
               <div className="col-span-1 text-center">#</div>
               <div className="col-span-3">Player</div>
@@ -420,25 +429,22 @@ export default function Leaderboard() {
                     </div>
 
                     {/* Player */}
-                    <div className="col-span-6 md:col-span-3 flex items-center gap-3">
+                    <div className="col-span-4 md:col-span-3 flex items-center gap-2">
                       <div className={cn(
-                        "w-10 h-10 rounded-full flex items-center justify-center font-anton text-lg",
+                        "w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center font-anton text-sm md:text-lg flex-shrink-0",
                         isCurrentPlayer 
                           ? "bg-secondary text-secondary-foreground" 
                           : "bg-primary text-primary-foreground"
                       )}>
                         {result.player_name.charAt(0).toUpperCase()}
                       </div>
-                      <div>
+                      <div className="min-w-0">
                         <p className={cn(
-                          "font-inter font-semibold text-sm",
+                          "font-inter font-semibold text-xs md:text-sm truncate",
                           isCurrentPlayer ? "text-secondary" : "text-foreground"
                         )}>
                           {result.player_name}
                           {isCurrentPlayer && <span className="text-xs ml-1">(You)</span>}
-                        </p>
-                        <p className="font-inter text-xs text-muted-foreground md:hidden">
-                          {total} ({formatScore(toPar)})
                         </p>
                       </div>
                     </div>
@@ -448,13 +454,13 @@ export default function Leaderboard() {
                       {result.hcp}
                     </div>
 
-                    {/* R1 - Desktop */}
-                    <div className="hidden md:block col-span-2 text-center font-inter text-foreground">
+                    {/* R1 */}
+                    <div className="col-span-2 text-center font-inter text-foreground text-sm md:text-base">
                       {r1 ?? "-"}
                     </div>
 
-                    {/* R2 - Desktop */}
-                    <div className="hidden md:block col-span-2 text-center font-inter text-foreground">
+                    {/* R2 */}
+                    <div className="col-span-2 text-center font-inter text-foreground text-sm md:text-base">
                       {r2 ?? "-"}
                     </div>
 
@@ -464,9 +470,9 @@ export default function Leaderboard() {
                     </div>
 
                     {/* To Par */}
-                    <div className="col-span-4 md:col-span-2 text-center">
+                    <div className="col-span-2 text-center">
                       <span className={cn(
-                        "font-anton text-xl",
+                        "font-anton text-lg md:text-xl",
                         toPar < 0 ? "text-green-600" : toPar > 0 ? "text-red-500" : "text-foreground"
                       )}>
                         {formatScore(toPar)}
