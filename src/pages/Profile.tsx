@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { usePlayer } from "@/contexts/PlayerContext";
 import { Layout } from "@/components/Layout";
 import { StatCard } from "@/components/StatCard";
+import { ProgressStatCard } from "@/components/ProgressStatCard";
 import { sgtClient, MemberStats, PlayerRound, TourStanding, Scorecard } from "@/lib/sgt-api";
 import { 
   Loader2, 
@@ -280,22 +281,38 @@ export default function Profile() {
                       Average Per Round
                     </h3>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      <div className="bg-birdie/10 rounded-lg p-4 text-center">
-                        <p className="font-anton text-2xl text-birdie">{progressStats.avgBirdies.toFixed(1)}</p>
-                        <p className="text-xs font-inter text-muted-foreground">Birdies</p>
-                      </div>
-                      <div className="bg-muted rounded-lg p-4 text-center">
-                        <p className="font-anton text-2xl text-foreground">{progressStats.avgPars.toFixed(1)}</p>
-                        <p className="text-xs font-inter text-muted-foreground">Pars</p>
-                      </div>
-                      <div className="bg-bogey/10 rounded-lg p-4 text-center">
-                        <p className="font-anton text-2xl text-bogey">{progressStats.avgBogeys.toFixed(1)}</p>
-                        <p className="text-xs font-inter text-muted-foreground">Bogeys</p>
-                      </div>
-                      <div className="bg-double/10 rounded-lg p-4 text-center">
-                        <p className="font-anton text-2xl text-double">{progressStats.avgDoublePlus.toFixed(1)}</p>
-                        <p className="text-xs font-inter text-muted-foreground">Double+</p>
-                      </div>
+                      <ProgressStatCard
+                        value={progressStats.avgBirdies.toFixed(1)}
+                        label="Birdies"
+                        explanation="The average number of birdies (one under par) you score per round. More birdies indicate strong scoring opportunities and good course management. Track this to see improvement in your scoring ability."
+                        className="bg-birdie/10"
+                        valueClassName="text-birdie"
+                        variant="compact"
+                      />
+                      <ProgressStatCard
+                        value={progressStats.avgPars.toFixed(1)}
+                        label="Pars"
+                        explanation="The average number of pars you make per round. Pars are the foundation of good scoring - they keep your round steady and prevent big numbers. A higher par average shows solid, consistent play."
+                        className="bg-muted"
+                        valueClassName="text-foreground"
+                        variant="compact"
+                      />
+                      <ProgressStatCard
+                        value={progressStats.avgBogeys.toFixed(1)}
+                        label="Bogeys"
+                        explanation="The average number of bogeys (one over par) per round. Bogeys are recoverable mistakes. Reducing your bogey count is often the fastest way to lower your scores."
+                        className="bg-bogey/10"
+                        valueClassName="text-bogey"
+                        variant="compact"
+                      />
+                      <ProgressStatCard
+                        value={progressStats.avgDoublePlus.toFixed(1)}
+                        label="Double+"
+                        explanation="The average number of double bogeys or worse per round. These are the score killers - eliminating doubles and triples is crucial for breaking scoring barriers. Focus on course management to avoid these big numbers."
+                        className="bg-double/10"
+                        valueClassName="text-double"
+                        variant="compact"
+                      />
                     </div>
                   </div>
 
@@ -306,61 +323,62 @@ export default function Profile() {
                       Par Performance
                     </h3>
                     <div className="grid grid-cols-3 gap-4">
-                      <div className="bg-muted/50 rounded-lg p-4 text-center">
-                        <p className="font-anton text-2xl text-foreground">{progressStats.par3Avg.toFixed(1)}</p>
-                        <p className="text-xs font-inter text-muted-foreground">Par 3 Avg</p>
-                        <p className={`text-xs font-inter font-medium mt-1 ${progressStats.par3Avg - 3 <= 0 ? 'text-birdie' : 'text-bogey'}`}>
-                          {progressStats.par3Avg - 3 > 0 ? '+' : ''}{(progressStats.par3Avg - 3).toFixed(1)} vs par
-                        </p>
-                      </div>
-                      <div className="bg-muted/50 rounded-lg p-4 text-center">
-                        <p className="font-anton text-2xl text-foreground">{progressStats.par4Avg.toFixed(1)}</p>
-                        <p className="text-xs font-inter text-muted-foreground">Par 4 Avg</p>
-                        <p className={`text-xs font-inter font-medium mt-1 ${progressStats.par4Avg - 4 <= 0 ? 'text-birdie' : 'text-bogey'}`}>
-                          {progressStats.par4Avg - 4 > 0 ? '+' : ''}{(progressStats.par4Avg - 4).toFixed(1)} vs par
-                        </p>
-                      </div>
-                      <div className="bg-muted/50 rounded-lg p-4 text-center">
-                        <p className="font-anton text-2xl text-foreground">{progressStats.par5Avg.toFixed(1)}</p>
-                        <p className="text-xs font-inter text-muted-foreground">Par 5 Avg</p>
-                        <p className={`text-xs font-inter font-medium mt-1 ${progressStats.par5Avg - 5 <= 0 ? 'text-birdie' : 'text-bogey'}`}>
-                          {progressStats.par5Avg - 5 > 0 ? '+' : ''}{(progressStats.par5Avg - 5).toFixed(1)} vs par
-                        </p>
-                      </div>
+                      <ProgressStatCard
+                        value={progressStats.par3Avg.toFixed(1)}
+                        label="Par 3 Avg"
+                        subValue={`${progressStats.par3Avg - 3 > 0 ? '+' : ''}${(progressStats.par3Avg - 3).toFixed(1)} vs par`}
+                        explanation="Your average score on Par 3 holes. These are the shortest holes where you hit directly at the green. A lower average here indicates strong iron play and accuracy. Tour average is around 3.1."
+                        className="bg-muted/50"
+                        valueClassName="text-foreground"
+                        variant="compact"
+                      />
+                      <ProgressStatCard
+                        value={progressStats.par4Avg.toFixed(1)}
+                        label="Par 4 Avg"
+                        subValue={`${progressStats.par4Avg - 4 > 0 ? '+' : ''}${(progressStats.par4Avg - 4).toFixed(1)} vs par`}
+                        explanation="Your average score on Par 4 holes, which make up most of any course. Strong Par 4 play requires good driving and approach shots. This is often where handicaps are made or broken."
+                        className="bg-muted/50"
+                        valueClassName="text-foreground"
+                        variant="compact"
+                      />
+                      <ProgressStatCard
+                        value={progressStats.par5Avg.toFixed(1)}
+                        label="Par 5 Avg"
+                        subValue={`${progressStats.par5Avg - 5 > 0 ? '+' : ''}${(progressStats.par5Avg - 5).toFixed(1)} vs par`}
+                        explanation="Your average score on Par 5 holes, the longest holes on the course. These are birdie opportunities for longer hitters. Scoring well here can significantly boost your overall round."
+                        className="bg-muted/50"
+                        valueClassName="text-foreground"
+                        variant="compact"
+                      />
                     </div>
                   </div>
 
                   {/* Key Metrics */}
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                    <div className="bg-muted/30 rounded-lg p-4 flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-secondary/20 flex items-center justify-center">
-                        <Award className="h-5 w-5 text-secondary" />
-                      </div>
-                      <div>
-                        <p className="font-anton text-xl text-foreground">
-                          {progressStats.bestToPar === 0 ? 'E' : progressStats.bestToPar > 0 ? `+${progressStats.bestToPar}` : progressStats.bestToPar}
-                        </p>
-                        <p className="text-xs font-inter text-muted-foreground">Best To Par</p>
-                      </div>
-                    </div>
-                    <div className="bg-muted/30 rounded-lg p-4 flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-bogey/20 flex items-center justify-center">
-                        <AlertTriangle className="h-5 w-5 text-bogey" />
-                      </div>
-                      <div>
-                        <p className="font-anton text-xl text-foreground">{progressStats.blowUpFrequency.toFixed(1)}%</p>
-                        <p className="text-xs font-inter text-muted-foreground">Blow-up Holes</p>
-                      </div>
-                    </div>
-                    <div className="bg-muted/30 rounded-lg p-4 flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-birdie/20 flex items-center justify-center">
-                        <Gauge className="h-5 w-5 text-birdie" />
-                      </div>
-                      <div>
-                        <p className="font-anton text-xl text-foreground">{progressStats.consistencyScore.toFixed(0)}%</p>
-                        <p className="text-xs font-inter text-muted-foreground">Consistency</p>
-                      </div>
-                    </div>
+                    <ProgressStatCard
+                      value={progressStats.bestToPar === 0 ? 'E' : progressStats.bestToPar > 0 ? `+${progressStats.bestToPar}` : progressStats.bestToPar}
+                      label="Best To Par"
+                      explanation="Your best score relative to par across all recorded rounds. This represents your peak performance and shows what you are capable of achieving. Use this as motivation - you have done it before!"
+                      className="bg-muted/30"
+                      valueClassName="text-foreground"
+                      icon={<div className="w-10 h-10 rounded-full bg-secondary/20 flex items-center justify-center"><Award className="h-5 w-5 text-secondary" /></div>}
+                    />
+                    <ProgressStatCard
+                      value={`${progressStats.blowUpFrequency.toFixed(1)}%`}
+                      label="Blow-up Holes"
+                      explanation="The percentage of holes where you scored triple bogey or worse. These disaster holes can wreck an otherwise good round. Reducing blow-ups through smart course management is one of the fastest ways to lower your handicap."
+                      className="bg-muted/30"
+                      valueClassName="text-foreground"
+                      icon={<div className="w-10 h-10 rounded-full bg-bogey/20 flex items-center justify-center"><AlertTriangle className="h-5 w-5 text-bogey" /></div>}
+                    />
+                    <ProgressStatCard
+                      value={`${progressStats.consistencyScore.toFixed(0)}%`}
+                      label="Consistency"
+                      explanation="The percentage of your rounds that fall within 5 shots of your average score. Higher consistency means more predictable performances with fewer extreme highs and lows. Consistent golfers tend to have lower handicaps."
+                      className="bg-muted/30"
+                      valueClassName="text-foreground"
+                      icon={<div className="w-10 h-10 rounded-full bg-birdie/20 flex items-center justify-center"><Gauge className="h-5 w-5 text-birdie" /></div>}
+                    />
                   </div>
                 </div>
               </div>
