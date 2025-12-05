@@ -98,6 +98,10 @@ export interface TournamentResult {
   position: number;
   player_name: string;
   hcp: number;
+  r1_gross: number | null;
+  r1_net: number | null;
+  r2_gross: number | null;
+  r2_net: number | null;
   total_gross: number;
   total_net: number;
   to_par_gross: number;
