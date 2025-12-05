@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Layout } from "@/components/Layout";
 import { sgtClient, Tour, TourStanding, Tournament, TournamentResult } from "@/lib/sgt-api";
-import { Loader2, Trophy, Medal, Award, Calendar } from "lucide-react";
+import { Loader2, Trophy, Medal, Award } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   Select,
@@ -136,11 +136,6 @@ export default function Leaderboard() {
     return score.toString();
   };
 
-  // Get week number for tournament
-  const getWeekNumber = (index: number) => {
-    return tournaments.length - index;
-  };
-
   return (
     <Layout>
       <div className="mb-8 animate-fade-in">
@@ -190,8 +185,7 @@ export default function Leaderboard() {
               {(showAllWeeks ? tournaments : tournaments.slice(0, INITIAL_WEEKS_TO_SHOW)).map((tournament, index) => (
                 <SelectItem key={tournament.tournamentId} value={tournament.tournamentId.toString()}>
                   <div className="flex items-center gap-2">
-                    <Calendar className="h-4 w-4" />
-                    <span>Week {getWeekNumber(showAllWeeks ? index : index)}: {tournament.name}</span>
+                    <span>{tournament.name}</span>
                     {index === 0 && (
                       <span className="ml-1 px-1.5 py-0.5 text-[10px] font-semibold bg-secondary text-secondary-foreground rounded">
                         CURRENT
@@ -380,17 +374,21 @@ export default function Leaderboard() {
             {/* Table Header */}
             <div className="hidden md:grid grid-cols-12 gap-4 px-4 py-3 bg-muted/50 border-b border-border font-inter text-sm font-medium text-muted-foreground">
               <div className="col-span-1 text-center">#</div>
-              <div className="col-span-5">Player</div>
+              <div className="col-span-3">Player</div>
               <div className="col-span-1 text-center">HCP</div>
-              <div className="col-span-2 text-center">Score</div>
-              <div className="col-span-3 text-center">To Par</div>
+              <div className="col-span-2 text-center">R1</div>
+              <div className="col-span-2 text-center">R2</div>
+              <div className="col-span-1 text-center">Total</div>
+              <div className="col-span-2 text-center">To Par</div>
             </div>
 
             {/* Table Body */}
             <div className="divide-y divide-border">
               {tournamentResults.map((result, index) => {
                 const isCurrentPlayer = displayName && result.player_name.toLowerCase() === displayName.toLowerCase();
-                const score = scoreType === "gross" ? result.total_gross : result.total_net;
+                const r1 = scoreType === "gross" ? result.r1_gross : result.r1_net;
+                const r2 = scoreType === "gross" ? result.r2_gross : result.r2_net;
+                const total = scoreType === "gross" ? result.total_gross : result.total_net;
                 const toPar = scoreType === "gross" ? result.to_par_gross : result.to_par_net;
                 
                 return (
@@ -415,7 +413,7 @@ export default function Leaderboard() {
                     </div>
 
                     {/* Player */}
-                    <div className="col-span-6 md:col-span-5 flex items-center gap-3">
+                    <div className="col-span-6 md:col-span-3 flex items-center gap-3">
                       <div className={cn(
                         "w-10 h-10 rounded-full flex items-center justify-center font-anton text-lg",
                         isCurrentPlayer 
@@ -426,14 +424,14 @@ export default function Leaderboard() {
                       </div>
                       <div>
                         <p className={cn(
-                          "font-inter font-semibold",
+                          "font-inter font-semibold text-sm",
                           isCurrentPlayer ? "text-secondary" : "text-foreground"
                         )}>
                           {result.player_name}
-                          {isCurrentPlayer && <span className="text-xs ml-2">(You)</span>}
+                          {isCurrentPlayer && <span className="text-xs ml-1">(You)</span>}
                         </p>
                         <p className="font-inter text-xs text-muted-foreground md:hidden">
-                          {score} ({formatScore(toPar)})
+                          {total} ({formatScore(toPar)})
                         </p>
                       </div>
                     </div>
@@ -443,13 +441,23 @@ export default function Leaderboard() {
                       {result.hcp}
                     </div>
 
-                    {/* Score - Desktop */}
-                    <div className="hidden md:block col-span-2 text-center font-anton text-xl text-foreground">
-                      {score}
+                    {/* R1 - Desktop */}
+                    <div className="hidden md:block col-span-2 text-center font-inter text-foreground">
+                      {r1 ?? "-"}
+                    </div>
+
+                    {/* R2 - Desktop */}
+                    <div className="hidden md:block col-span-2 text-center font-inter text-foreground">
+                      {r2 ?? "-"}
+                    </div>
+
+                    {/* Total - Desktop */}
+                    <div className="hidden md:block col-span-1 text-center font-anton text-lg text-foreground">
+                      {total}
                     </div>
 
                     {/* To Par */}
-                    <div className="col-span-4 md:col-span-3 text-center">
+                    <div className="col-span-4 md:col-span-2 text-center">
                       <span className={cn(
                         "font-anton text-xl",
                         toPar < 0 ? "text-green-600" : toPar > 0 ? "text-red-500" : "text-foreground"

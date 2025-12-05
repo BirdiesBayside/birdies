@@ -319,28 +319,66 @@ serve(async (req) => {
         
         const { data: scorecards, error } = await adminClient
           .from("sgt_scorecards")
-          .select("player_name, hcp_index, total_gross, total_net, to_par_gross, to_par_net")
-          .eq("tournament_id", parseInt(params.tournamentId));
+          .select("player_name, hcp_index, round, total_gross, total_net, to_par_gross, to_par_net")
+          .eq("tournament_id", parseInt(params.tournamentId))
+          .order("round");
         
         if (error) throw error;
         
+        // Group scorecards by player
+        const playerMap = new Map<string, {
+          player_name: string;
+          hcp: number;
+          r1_gross: number | null;
+          r1_net: number | null;
+          r2_gross: number | null;
+          r2_net: number | null;
+          total_gross: number;
+          total_net: number;
+          to_par_gross: number;
+          to_par_net: number;
+        }>();
+        
+        for (const sc of scorecards || []) {
+          const existing = playerMap.get(sc.player_name) || {
+            player_name: sc.player_name,
+            hcp: sc.hcp_index,
+            r1_gross: null,
+            r1_net: null,
+            r2_gross: null,
+            r2_net: null,
+            total_gross: 0,
+            total_net: 0,
+            to_par_gross: 0,
+            to_par_net: 0,
+          };
+          
+          if (sc.round === 1) {
+            existing.r1_gross = sc.total_gross;
+            existing.r1_net = sc.total_net;
+          } else if (sc.round === 2) {
+            existing.r2_gross = sc.total_gross;
+            existing.r2_net = sc.total_net;
+          }
+          
+          existing.total_gross += sc.total_gross || 0;
+          existing.total_net += sc.total_net || 0;
+          existing.to_par_gross += sc.to_par_gross || 0;
+          existing.to_par_net += sc.to_par_net || 0;
+          
+          playerMap.set(sc.player_name, existing);
+        }
+        
         // Sort by gross or net score
         const sortBy = params.grossOrNet === "net" ? "to_par_net" : "to_par_gross";
-        const sorted = (scorecards || []).sort((a, b) => {
-          const aScore = a[sortBy] ?? 999;
-          const bScore = b[sortBy] ?? 999;
-          return aScore - bScore;
+        const sorted = Array.from(playerMap.values()).sort((a, b) => {
+          return (a[sortBy] ?? 999) - (b[sortBy] ?? 999);
         });
         
         // Add positions
-        data = sorted.map((sc, index) => ({
+        data = sorted.map((player, index) => ({
           position: index + 1,
-          player_name: sc.player_name,
-          hcp: sc.hcp_index,
-          total_gross: sc.total_gross,
-          total_net: sc.total_net,
-          to_par_gross: sc.to_par_gross,
-          to_par_net: sc.to_par_net,
+          ...player,
         }));
         break;
       }
