@@ -1,10 +1,9 @@
 import { useEffect, useState, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
-import { usePlayer } from "@/contexts/PlayerContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { Layout } from "@/components/Layout";
 import { StatCard } from "@/components/StatCard";
 import { ProgressStatCard } from "@/components/ProgressStatCard";
-import { sgtClient, MemberStats, PlayerRound, TourStanding, Scorecard } from "@/lib/sgt-api";
+import { sgtClient, MemberStats, PlayerRound, TourStanding } from "@/lib/sgt-api";
 import { 
   Loader2, 
   Mail, 
@@ -104,28 +103,21 @@ function calculateProgressStats(rounds: PlayerRound[]): ProgressStats | null {
 }
 
 export default function Profile() {
-  const { player, isLoading: playerLoading } = usePlayer();
-  const navigate = useNavigate();
+  const { profile, isLoading: authLoading } = useAuth();
   const [stats, setStats] = useState<MemberStats | null>(null);
   const [rounds, setRounds] = useState<PlayerRound[]>([]);
   const [standing, setStanding] = useState<TourStanding | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (!playerLoading && !player) {
-      navigate("/");
-    }
-  }, [player, playerLoading, navigate]);
-
-  useEffect(() => {
-    if (!player) return;
+    if (authLoading || !profile) return;
 
     async function loadProfile() {
       setIsLoading(true);
       try {
         const [statsData, roundsData, toursData] = await Promise.all([
-          sgtClient.getMemberStats(player.user_id).catch(() => null),
-          sgtClient.getPlayerRounds(player.user_id).catch(() => []),
+          sgtClient.getMemberStats().catch(() => null),
+          sgtClient.getPlayerRounds().catch(() => []),
           sgtClient.getTours().catch(() => []),
         ]);
 
@@ -134,11 +126,11 @@ export default function Profile() {
 
         // Get standing from first active tour
         const activeTour = toursData.find(t => t.active === 1);
-        if (activeTour) {
+        if (activeTour && profile.display_name) {
           try {
             const standingsData = await sgtClient.getTourStandings(activeTour.tourId);
             const playerStanding = standingsData.find(
-              s => s.user_name.toLowerCase() === player.user_name.toLowerCase()
+              s => s.user_name.toLowerCase() === profile.display_name?.toLowerCase()
             );
             if (playerStanding) {
               setStanding(playerStanding);
@@ -155,17 +147,19 @@ export default function Profile() {
     }
 
     loadProfile();
-  }, [player]);
+  }, [profile, authLoading]);
 
   const progressStats = useMemo(() => calculateProgressStats(rounds), [rounds]);
 
-  if (playerLoading || !player) {
+  if (authLoading || !profile) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 text-secondary animate-spin" />
       </div>
     );
   }
+
+  const displayName = profile.display_name || profile.email?.split("@")[0] || "Golfer";
 
   // Calculate stats
   const avgScore = rounds.length > 0
@@ -188,23 +182,17 @@ export default function Profile() {
           <div className="hero-section p-6 md:p-8">
             <div className="flex flex-col md:flex-row items-center gap-6">
               <div className="w-24 h-24 md:w-32 md:h-32 rounded-full bg-secondary flex items-center justify-center text-secondary-foreground font-anton text-4xl md:text-5xl shadow-lg">
-                {player.user_name.charAt(0).toUpperCase()}
+                {displayName.charAt(0).toUpperCase()}
               </div>
               <div className="text-center md:text-left">
                 <h1 className="font-anton text-3xl md:text-4xl text-primary-foreground mb-2">
-                  {player.user_name.toUpperCase()}
+                  {displayName.toUpperCase()}
                 </h1>
                 <div className="flex flex-col md:flex-row items-center gap-2 md:gap-4 text-primary-foreground/80 font-inter text-sm">
-                  {player.user_email && (
+                  {profile.email && (
                     <div className="flex items-center gap-1">
                       <Mail className="h-4 w-4" />
-                      {player.user_email}
-                    </div>
-                  )}
-                  {player.user_country_code && (
-                    <div className="flex items-center gap-1">
-                      <Globe className="h-4 w-4" />
-                      {player.user_country_code}
+                      {profile.email}
                     </div>
                   )}
                 </div>
@@ -409,41 +397,10 @@ export default function Profile() {
                       <p className="text-sm font-inter text-muted-foreground">Top 10</p>
                     </div>
                     <div>
-                      <p className="text-3xl font-anton text-secondary">{standing.points}</p>
+                      <p className="text-3xl font-anton text-foreground">{standing.points}</p>
                       <p className="text-sm font-inter text-muted-foreground">Points</p>
                     </div>
                   </div>
-                </div>
-              </div>
-            )}
-
-            {/* Active Tours */}
-            {stats && stats.tours.length > 0 && (
-              <div className="animate-slide-up" style={{ animationDelay: "300ms" }}>
-                <h2 className="font-anton text-2xl text-foreground mb-4">
-                  ACTIVE TOURS
-                </h2>
-                <div className="space-y-3">
-                  {stats.tours.map((tour) => (
-                    <div 
-                      key={tour.tourId}
-                      className="bg-card rounded-xl border border-border p-4 flex items-center justify-between"
-                    >
-                      <div>
-                        <h3 className="font-inter font-semibold text-foreground">
-                          {tour.tourName}
-                        </h3>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-anton text-xl text-secondary">
-                          {tour.handicap}
-                        </p>
-                        <p className="text-xs font-inter text-muted-foreground">
-                          Tour HCP
-                        </p>
-                      </div>
-                    </div>
-                  ))}
                 </div>
               </div>
             )}

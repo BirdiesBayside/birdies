@@ -13,33 +13,60 @@ serve(async (req) => {
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const supabaseKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-  const supabase = createClient(supabaseUrl, supabaseKey);
+  
+  // Get the authorization header to pass through to Supabase client
+  const authHeader = req.headers.get("Authorization");
+  
+  // Create client with the user's JWT for RLS
+  const supabase = createClient(supabaseUrl, supabaseKey, {
+    global: {
+      headers: authHeader ? { Authorization: authHeader } : {},
+    },
+  });
 
   try {
+    // Verify the user is authenticated
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    
+    if (authError || !user) {
+      console.error("Auth error:", authError);
+      return new Response(
+        JSON.stringify({ error: "Unauthorized" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const { action, params = {} } = await req.json();
+    
+    // Get the user's profile to find their SGT user ID
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("sgt_user_id")
+      .eq("id", user.id)
+      .single();
+
+    const userSgtId = profile?.sgt_user_id;
     
     let data;
     
     switch (action) {
       case "members": {
+        // Only return member names (not emails) for authenticated users
         const { data: members, error } = await supabase
           .from("sgt_members")
-          .select("*")
+          .select("user_id, user_name, user_country_code, user_has_avatar, user_active")
           .eq("user_active", 1)
           .order("user_name");
         
         if (error) throw error;
         
-        // Map to expected format
         data = { 
           members: members?.map(m => ({
             user_id: m.user_id,
             user_name: m.user_name,
-            user_email: m.user_email,
-            user_active: m.user_active,
             user_country_code: m.user_country_code,
             user_has_avatar: m.user_has_avatar,
-            user_game_id: m.user_game_id,
+            user_active: m.user_active,
           })) || []
         };
         break;
@@ -138,6 +165,7 @@ serve(async (req) => {
       case "scorecards": {
         if (!params.tournamentId) throw new Error("tournamentId required");
         
+        // RLS will automatically filter to only show user's own scorecards
         const { data: scorecards, error } = await supabase
           .from("sgt_scorecards")
           .select("*")
@@ -168,13 +196,18 @@ serve(async (req) => {
       }
         
       case "member-stats": {
-        if (!params.userId) throw new Error("userId required");
+        // Users can only get their own stats
+        const userId = userSgtId;
+        if (!userId) {
+          data = { tours: [], handicap: null, totalRounds: 0 };
+          break;
+        }
         
         // Get tour memberships with handicap info
         const { data: tourMemberships, error: tmError } = await supabase
           .from("sgt_tour_members")
           .select("*, sgt_tours!inner(name, active)")
-          .eq("user_id", parseInt(params.userId));
+          .eq("user_id", userId);
         
         if (tmError) throw tmError;
         
@@ -196,13 +229,18 @@ serve(async (req) => {
       }
         
       case "player-rounds": {
-        if (!params.userId) throw new Error("userId required");
+        // Users can only get their own rounds - RLS enforces this
+        const userId = userSgtId;
+        if (!userId) {
+          data = [];
+          break;
+        }
         
-        // Get all scorecards for this player with tournament info
+        // RLS will filter to only show user's own scorecards
         const { data: scorecards, error } = await supabase
           .from("sgt_scorecards")
           .select("*, sgt_tournaments!inner(name, course_name, end_date, status)")
-          .eq("player_id", parseInt(params.userId))
+          .eq("player_id", userId)
           .order("sgt_tournaments(end_date)", { ascending: false })
           .limit(50);
         
@@ -235,20 +273,6 @@ serve(async (req) => {
             ...sc.hole_data,
           },
         })) || [];
-        break;
-      }
-
-      case "last-sync": {
-        const { data: lastSync, error } = await supabase
-          .from("sgt_sync_log")
-          .select("*")
-          .eq("status", "completed")
-          .order("completed_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        
-        if (error) throw error;
-        data = lastSync;
         break;
       }
         

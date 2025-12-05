@@ -1,3 +1,5 @@
+import { supabase } from "@/integrations/supabase/client";
+
 const SGT_API_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sgt-api`;
 
 export interface Member {
@@ -6,8 +8,6 @@ export interface Member {
   user_active: number;
   user_country_code: string;
   user_has_avatar: string;
-  user_game_id: string;
-  user_email: string;
 }
 
 export interface Tour {
@@ -85,11 +85,21 @@ export interface MemberStats {
 }
 
 async function sgtApi<T>(action: string, params: Record<string, string> = {}): Promise<T> {
+  // Get the current session for auth header
+  const { data: { session } } = await supabase.auth.getSession();
+  
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+  };
+
+  if (session?.access_token) {
+    headers["Authorization"] = `Bearer ${session.access_token}`;
+  }
+
   const response = await fetch(SGT_API_URL, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
+    headers,
     body: JSON.stringify({ action, params }),
   });
 
@@ -118,9 +128,9 @@ export const sgtClient = {
   getScorecards: (tournamentId: number) =>
     sgtApi<Scorecard[]>("scorecards", { tournamentId: tournamentId.toString() }),
   
-  getMemberStats: (userId: number) =>
-    sgtApi<MemberStats>("member-stats", { userId: userId.toString() }),
+  getMemberStats: () =>
+    sgtApi<MemberStats>("member-stats", {}),
   
-  getPlayerRounds: (userId: number) =>
-    sgtApi<PlayerRound[]>("player-rounds", { userId: userId.toString() }),
+  getPlayerRounds: () =>
+    sgtApi<PlayerRound[]>("player-rounds", {}),
 };

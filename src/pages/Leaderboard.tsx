@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { usePlayer } from "@/contexts/PlayerContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { Layout } from "@/components/Layout";
 import { sgtClient, Tour, TourStanding } from "@/lib/sgt-api";
 import { Loader2, Trophy, Medal, Award } from "lucide-react";
@@ -14,8 +13,7 @@ import {
 } from "@/components/ui/select";
 
 export default function Leaderboard() {
-  const { player, isLoading: playerLoading } = usePlayer();
-  const navigate = useNavigate();
+  const { profile, isLoading: authLoading } = useAuth();
   const [tours, setTours] = useState<Tour[]>([]);
   const [selectedTour, setSelectedTour] = useState<number | null>(null);
   const [standings, setStandings] = useState<TourStanding[]>([]);
@@ -23,12 +21,8 @@ export default function Leaderboard() {
   const [scoreType, setScoreType] = useState<"gross" | "net">("gross");
 
   useEffect(() => {
-    if (!playerLoading && !player) {
-      navigate("/");
-    }
-  }, [player, playerLoading, navigate]);
+    if (authLoading) return;
 
-  useEffect(() => {
     async function loadTours() {
       try {
         const data = await sgtClient.getTours();
@@ -42,7 +36,7 @@ export default function Leaderboard() {
       }
     }
     loadTours();
-  }, []);
+  }, [authLoading]);
 
   useEffect(() => {
     if (!selectedTour) return;
@@ -63,13 +57,15 @@ export default function Leaderboard() {
     loadStandings();
   }, [selectedTour, scoreType]);
 
-  if (playerLoading || !player) {
+  if (authLoading || !profile) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 text-secondary animate-spin" />
       </div>
     );
   }
+
+  const displayName = profile.display_name || "";
 
   const getPositionIcon = (position: number) => {
     switch (position) {
@@ -167,7 +163,7 @@ export default function Leaderboard() {
           {/* Table Body */}
           <div className="divide-y divide-border">
             {standings.map((standing, index) => {
-              const isCurrentPlayer = standing.user_name.toLowerCase() === player.user_name.toLowerCase();
+              const isCurrentPlayer = displayName && standing.user_name.toLowerCase() === displayName.toLowerCase();
               return (
                 <div
                   key={standing.user_name}
